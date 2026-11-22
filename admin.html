@@ -136,7 +136,7 @@
     <!-- TAB 4: CONFIGURACIÓN DE LA WEB PÚBLICA -->
     <section id="view-config" class="hidden bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-6">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-white">⚙️ Configurar Cartelera, Precios y QR Yape</h2>
+        <h2 class="text-lg font-bold text-white">⚙️ Configurar Cartelera, Dulcería y QR Yape</h2>
         <button onclick="saveConfig()" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs">💾 Guardar Cambios en la Web</button>
       </div>
 
@@ -184,6 +184,20 @@
         </div>
       </div>
 
+      <!-- EDITOR DE DULCERÍA Y COMBOS -->
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 class="font-bold text-amber-400 text-sm">🍿 Combos y Snacks de Dulcería</h3>
+            <p class="text-xs text-slate-400">Edita nombres, descripciones y precios o agrega nuevos combos.</p>
+          </div>
+          <button type="button" onclick="addSnackRow()" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs">
+            + Agregar Combo
+          </button>
+        </div>
+        <div id="cfg-snacks-list" class="space-y-3"></div>
+      </div>
+
       <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
         <div>
           <label class="text-xs text-slate-400 mr-2">Contraseña del Admin:</label>
@@ -226,6 +240,7 @@
     let ordersData = {};
     let occupiedData = { show1: {}, show2: {} };
     let posSelectedSeats = [];
+    let isEditingSnacks = false;
     let currentConfig = {
       eventDate: "Sábado 5 de Diciembre",
       yapeName: "CineBosco Oficial",
@@ -235,7 +250,13 @@
       shows: {
         show1: { id: "show1", tag: "FUNCIÓN ORATORIANA • 5:00 PM", title: "Intensa-Mente 2", desc: "Función especial para niños del oratorio y familias.", price: 5.00, poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80" },
         show2: { id: "show2", tag: "FUNCIÓN JUVENIL • 7:00 PM", title: "¿Y dónde están las rubias?", desc: "Comedia clásica para disfrutar con amigos.", price: 7.00, poster: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80" }
-      }
+      },
+      snacks: [
+        { id: "sn1", name: "Combo Bosco (Canchita + Gaseosa)", price: 6.00, desc: "Canchita mediana salada + vaso de gaseosa helada." },
+        { id: "sn2", name: "Canchita Clásica", price: 3.50, desc: "Porción personal recién hecha." },
+        { id: "sn3", name: "Gaseosa / Bebida", price: 3.00, desc: "Vaso personal bien helado." },
+        { id: "sn4", name: "Hot-Dog Clásico", price: 4.50, desc: "Con cremas al gusto." }
+      ]
     };
 
     onValue(ref(db, 'config'), (snap) => {
@@ -243,7 +264,7 @@
         currentConfig = { ...currentConfig, ...snap.val() };
         if (currentConfig.adminPass) adminPassword = currentConfig.adminPass;
       }
-      fillConfigForm();
+      if (!isEditingSnacks) fillConfigForm();
     });
 
     onValue(ref(db, 'orders'), (snap) => {
@@ -328,10 +349,13 @@
             ${o.receiptBase64 ? `<button onclick="viewReceipt('${key}')" class="px-3 py-1.5 rounded-lg bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-bold">🖼️ Ver Captura</button>` : ''}
             ${isPending ? `
               <button onclick="approveOrder('${key}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 text-xs font-extrabold">✓ Aprobar Yape</button>
-              <button onclick="rejectOrder('${key}')" class="px-3 py-1.5 rounded-lg bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-bold">✕ Rechazar y Liberar</button>
+              <button onclick="deleteOrderAndRelease('${key}')" class="px-3 py-1.5 rounded-lg bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-bold">✕ Rechazar y Liberar</button>
             ` : `
               <button onclick="toggleCheckIn('${key}', ${!o.checkedIn})" class="px-3 py-1.5 rounded-lg ${o.checkedIn ? 'bg-slate-800 text-slate-400' : 'bg-sky-500 text-slate-950'} text-xs font-extrabold">
                 ${o.checkedIn ? '✓ Ya ingresó a sala' : '🎟️ Marcar Ingreso en Puerta'}
+              </button>
+              <button onclick="deleteOrderAndRelease('${key}')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/40 text-rose-300 text-xs font-bold ml-auto">
+                🗑️ Eliminar y Liberar
               </button>
             `}
           </div>
@@ -349,9 +373,14 @@
       await update(ref(db, `orders/${key}`), { status: 'approved' });
     };
 
-    window.rejectOrder = async (key) => {
-      if (!confirm("¿Seguro que deseas rechazar esta reserva y liberar sus butacas?")) return;
+    window.deleteOrderAndRelease = async (key) => {
       const o = ordersData[key];
+      if (!o) return;
+      const msg = o.status === 'approved'
+        ? `⚠️ Esta compra (${o.code} - ${o.buyerName}) YA ESTÁ APROBADA.\n\n¿Seguro que deseas eliminarla, restar los S/ ${Number(o.total).toFixed(2)} de caja y liberar las butacas (${(o.seats || []).join(', ')})?`
+        : `¿Seguro que deseas rechazar la reserva ${o.code} y liberar sus butacas (${(o.seats || []).join(', ')})?`;
+      if (!confirm(msg)) return;
+
       const updates = {};
       (o.seats || []).forEach(s => { updates[`occupiedSeats/${o.showId}/${s}`] = null; });
       updates[`orders/${key}`] = null;
@@ -495,6 +524,65 @@
       document.getElementById('cfg-s2-desc').value = s2.desc;
       document.getElementById('cfg-s2-poster').value = s2.poster;
       document.getElementById('cfg-s2-price').value = s2.price;
+
+      renderSnackRows(Array.isArray(currentConfig.snacks) ? currentConfig.snacks : []);
+    }
+
+    function renderSnackRows(snacks) {
+      const container = document.getElementById('cfg-snacks-list');
+      container.innerHTML = '';
+      snacks.forEach((sn, idx) => {
+        const row = document.createElement('div');
+        row.className = "snack-row grid sm:grid-cols-12 gap-2.5 bg-slate-900 border border-slate-800 p-3 rounded-xl items-center";
+        row.dataset.id = sn.id || `sn_${Date.now()}_${idx}`;
+        row.innerHTML = `
+          <div class="sm:col-span-4">
+            <label class="block text-[10px] text-slate-400 mb-0.5">Nombre del combo</label>
+            <input type="text" value="${(sn.name || '').replace(/"/g, '&quot;')}" oninput="isEditingSnacks = true" placeholder="Ej. Combo Doble" class="snack-name w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white" />
+          </div>
+          <div class="sm:col-span-5">
+            <label class="block text-[10px] text-slate-400 mb-0.5">Descripción</label>
+            <input type="text" value="${(sn.desc || '').replace(/"/g, '&quot;')}" oninput="isEditingSnacks = true" placeholder="Ej. 2 canchitas + 2 gaseosas" class="snack-desc w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] text-slate-400 mb-0.5">Precio (S/)</label>
+            <input type="number" value="${Number(sn.price || 0)}" step="0.5" min="0" oninput="isEditingSnacks = true" class="snack-price w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white" />
+          </div>
+          <div class="sm:col-span-1 flex justify-end sm:pt-4">
+            <button type="button" onclick="removeSnackRow(this)" title="Eliminar combo" class="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/40 text-rose-300 text-xs font-bold">✕</button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    window.addSnackRow = () => {
+      isEditingSnacks = true;
+      const currentRows = collectSnacksFromDOM();
+      currentRows.push({
+        id: `sn_${Date.now()}`,
+        name: "",
+        desc: "",
+        price: 0
+      });
+      renderSnackRows(currentRows);
+    };
+
+    window.removeSnackRow = (btn) => {
+      isEditingSnacks = true;
+      btn.closest('.snack-row').remove();
+    };
+
+    function collectSnacksFromDOM() {
+      const rows = Array.from(document.querySelectorAll('#cfg-snacks-list .snack-row'));
+      return rows
+        .map((row, i) => ({
+          id: row.dataset.id || `sn_${i}`,
+          name: row.querySelector('.snack-name').value.trim(),
+          desc: row.querySelector('.snack-desc').value.trim(),
+          price: Number(row.querySelector('.snack-price').value || 0)
+        }))
+        .filter(item => item.name.length > 0);
     }
 
     window.uploadYapeQr = (e) => {
@@ -531,7 +619,9 @@
         poster: document.getElementById('cfg-s2-poster').value,
         price: Number(document.getElementById('cfg-s2-price').value)
       };
+      currentConfig.snacks = collectSnacksFromDOM();
       await set(ref(db, 'config'), currentConfig);
+      isEditingSnacks = false;
       alert("¡Configuración guardada! La web pública ya muestra los cambios.");
     };
 
