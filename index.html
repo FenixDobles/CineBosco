@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineBosco | Compra tus Entradas Online</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #090d16; color: #f8fafc; }
+    .screen-arc {
+      height: 22px;
+      border-top: 4px solid #38bdf8;
+      border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+      box-shadow: 0 -10px 25px -4px rgba(56, 189, 248, 0.5);
+    }
+    .seat-btn { transition: all 0.15s ease; }
+    .seat-btn:not(:disabled):hover { transform: scale(1.12); }
+    .custom-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-slate-950/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-lg shadow-lg shadow-sky-500/20">🎬</div>
+        <div>
+          <h1 class="font-extrabold text-lg tracking-tight text-white leading-none">CineBosco</h1>
+          <p class="text-[11px] text-sky-400 font-medium" id="header-date">Sábado 5 de Diciembre</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span id="db-status" class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">Conectando...</span>
+      </div>
+    </div>
+
+    <!-- Stepper estilo Cineplanet -->
+    <div class="bg-slate-900/80 border-t border-slate-800/80">
+      <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between text-xs font-semibold">
+        <button onclick="goToStep(1)" id="step-ind-1" class="flex items-center gap-1.5 text-sky-400">
+          <span class="w-5 h-5 rounded-full bg-sky-500 text-slate-950 flex items-center justify-center font-bold">1</span>
+          <span>Función</span>
+        </button>
+        <div class="h-px flex-1 bg-slate-800 mx-2"></div>
+        <button onclick="goToStep(2)" id="step-ind-2" class="flex items-center gap-1.5 text-slate-500">
+          <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold">2</span>
+          <span>Butacas</span>
+        </button>
+        <div class="h-px flex-1 bg-slate-800 mx-2"></div>
+        <button onclick="goToStep(3)" id="step-ind-3" class="flex items-center gap-1.5 text-slate-500">
+          <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold">3</span>
+          <span>Dulcería</span>
+        </button>
+        <div class="h-px flex-1 bg-slate-800 mx-2"></div>
+        <button onclick="goToStep(4)" id="step-ind-4" class="flex items-center gap-1.5 text-slate-500">
+          <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold">4</span>
+          <span>Pago Yape</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6 pb-28">
+
+    <!-- PASO 1: CARTELERA -->
+    <section id="step-1" class="space-y-6">
+      <div class="text-center max-w-xl mx-auto">
+        <h2 class="text-2xl font-extrabold text-white">Elige tu función</h2>
+        <p class="text-sm text-slate-400 mt-1">Selecciona la película que deseas ver para escoger tus asientos en sala.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5" id="movies-container">
+        <!-- Renderizado dinámico -->
+      </div>
+    </section>
+
+    <!-- PASO 2: MAPA DE BUTACAS -->
+    <section id="step-2" class="hidden space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-sky-400" id="selected-show-badge">FUNCIÓN</span>
+          <h2 class="text-lg font-bold text-white" id="selected-movie-title">Película</h2>
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+          <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-slate-700 border border-slate-500 inline-block"></span> Libre</div>
+          <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-sky-500 shadow shadow-sky-500/50 inline-block"></span> Tu elección</div>
+          <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-rose-600/80 border border-rose-500 inline-block"></span> Ocupada</div>
+        </div>
+      </div>
+
+      <!-- Croquis de Sala -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 overflow-x-auto custom-scroll">
+        <div class="min-w-[440px] max-w-xl mx-auto">
+          <div class="screen-arc w-4/5 mx-auto mb-1"></div>
+          <p class="text-center text-[11px] font-bold tracking-[0.25em] text-sky-400/80 uppercase mb-6">PANTALLA</p>
+
+          <!-- Números de Columna -->
+          <div class="flex items-center justify-center gap-1 mb-2 text-[10px] font-bold text-slate-400">
+            <span class="w-5"></span>
+            <div class="grid grid-cols-5 gap-1 text-center w-[156px]">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+            <div class="w-8 text-center text-slate-600">PAS</div>
+            <div class="grid grid-cols-5 gap-1 text-center w-[156px]">
+              <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+            </div>
+            <span class="w-5"></span>
+          </div>
+
+          <!-- Filas A - P -->
+          <div id="seats-grid" class="space-y-1.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASO 3: DULCERÍA -->
+    <section id="step-3" class="hidden space-y-5">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">🍿 Dulcería CineBosco</h2>
+          <p class="text-xs text-slate-400">Agrega combos o snacks para disfrutar la película (opcional).</p>
+        </div>
+        <button onclick="goToStep(4)" class="text-xs font-semibold text-sky-400 hover:underline">Omitir paso →</button>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4" id="snacks-container">
+        <!-- Renderizado dinámico -->
+      </div>
+    </section>
+
+    <!-- PASO 4: CHECKOUT Y PAGO YAPE -->
+    <section id="step-4" class="hidden space-y-5">
+      <div class="grid md:grid-cols-5 gap-6">
+        <!-- Formulario y Resumen -->
+        <div class="md:col-span-3 space-y-4">
+          <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+            <h2 class="text-lg font-bold text-white">1. Tus Datos para el Ticket</h2>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre y Apellido *</label>
+              <input type="text" id="buyer-name" placeholder="Ej. Camila Torres" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Número de WhatsApp *</label>
+              <input type="tel" id="buyer-phone" placeholder="Ej. 987654321" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-3">
+            <h2 class="text-lg font-bold text-white">2. Resumen de Compra</h2>
+            <div class="text-sm space-y-2 text-slate-300" id="checkout-summary"></div>
+            <div class="border-t border-slate-800 pt-3 flex items-center justify-between">
+              <span class="font-bold text-white">Total a Yape:</span>
+              <span class="text-2xl font-extrabold text-sky-400" id="checkout-total">S/ 0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Módulo Yape -->
+        <div class="md:col-span-2">
+          <div class="bg-gradient-to-b from-[#742284] to-[#4c1458] p-5 rounded-2xl text-white shadow-xl space-y-4 border border-purple-400/20">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-lg tracking-tight">Paga con Yape</span>
+              <span class="bg-white/20 text-xs font-bold px-2.5 py-1 rounded-full">Sin comisión</span>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl text-center">
+              <img id="yape-qr-img" src="" alt="QR Yape" class="w-44 h-44 mx-auto object-contain rounded-lg hidden" />
+              <div id="yape-qr-placeholder" class="w-44 h-44 mx-auto bg-slate-100 rounded-lg flex flex-col items-center justify-center text-slate-500 text-xs p-3">
+                <span class="text-2xl mb-1">📱</span>
+                <span>Yapea al número indicado abajo</span>
+              </div>
+              <p class="text-slate-900 font-extrabold text-sm mt-2" id="yape-owner-name">CineBosco Oficial</p>
+              <p class="text-purple-800 font-bold text-base" id="yape-owner-phone">999 999 999</p>
+            </div>
+
+            <div class="space-y-3 pt-1">
+              <div>
+                <label class="block text-xs font-semibold text-purple-100 mb-1">N° de Operación Yape (últimos dígitos) *</label>
+                <input type="text" id="yape-op-code" placeholder="Ej. 048291" class="w-full bg-black/30 border border-purple-300/30 rounded-xl px-3 py-2 text-sm text-white placeholder-purple-200/50 focus:outline-none focus:border-white" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-purple-100 mb-1">Sube captura del Yape (Opcional pero recomendado)</label>
+                <input type="file" id="yape-receipt-file" accept="image/*" onchange="handleReceiptUpload(event)" class="w-full text-xs text-purple-100 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-white file:text-purple-900 hover:file:bg-purple-100" />
+                <p id="receipt-status" class="text-[11px] text-emerald-300 mt-1 hidden">✓ Imagen cargada correctamente</p>
+              </div>
+
+              <button onclick="submitOrder()" id="btn-submit-order" class="w-full py-3.5 rounded-xl bg-[#00d68f] hover:bg-[#00c080] text-slate-950 font-extrabold text-sm shadow-lg transition transform active:scale-95">
+                Confirmar Reserva y Generar Ticket
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASO 5: TICKET GENERADO -->
+    <section id="step-5" class="hidden max-w-md mx-auto">
+      <div class="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl">
+        <div class="bg-gradient-to-r from-sky-500 to-indigo-600 p-5 text-center text-white">
+          <span class="inline-block px-3 py-1 bg-black/25 rounded-full text-[11px] font-bold uppercase tracking-wider mb-2">Reserva Registrada</span>
+          <h2 class="text-2xl font-extrabold">¡Nos vemos en CineBosco!</h2>
+          <p class="text-xs text-sky-100 mt-1">Guarda una captura de este pase para ingresar</p>
+        </div>
+
+        <div class="p-6 space-y-5 relative">
+          <div class="flex justify-center bg-white p-4 rounded-2xl w-fit mx-auto shadow-inner">
+            <div id="ticket-qrcode"></div>
+          </div>
+
+          <div class="text-center">
+            <p class="text-xs text-slate-400">Código de Reserva</p>
+            <p class="text-xl font-mono font-extrabold text-sky-400 tracking-wider" id="tk-code">CB-0000</p>
+          </div>
+
+          <div class="bg-slate-950/80 rounded-2xl p-4 space-y-2.5 text-sm border border-slate-800">
+            <div class="flex justify-between"><span class="text-slate-400">Titular:</span><span class="font-bold text-white" id="tk-name">-</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Función:</span><span class="font-bold text-white" id="tk-show">-</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Película:</span><span class="font-bold text-sky-400 text-right" id="tk-movie">-</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Butacas:</span><span class="font-extrabold text-amber-400" id="tk-seats">-</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Dulcería:</span><span class="font-medium text-slate-200 text-right" id="tk-snacks">Ninguno</span></div>
+            <div class="flex justify-between border-t border-slate-800 pt-2"><span class="text-slate-400">Estado Yape:</span><span class="font-bold text-amber-400">En verificación ⏳</span></div>
+          </div>
+
+          <div class="space-y-2.5 pt-2">
+            <a id="btn-whatsapp-share" href="#" target="_blank" class="block w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-center text-sm transition">
+              📲 Enviar comprobante a mi WhatsApp
+            </a>
+            <button onclick="location.reload()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
+              Comprar otras entradas
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Barra Flotante Inferior -->
+  <footer id="bottom-bar" class="hidden fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 p-3.5 z-40">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-4">
+      <div>
+        <p class="text-xs text-slate-400" id="bar-seats-label">0 butacas seleccionadas</p>
+        <p class="text-lg font-extrabold text-white" id="bar-total-label">S/ 0.00</p>
+      </div>
+      <button onclick="nextStep()" id="btn-next-step" class="px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-sky-500/20 transition disabled:opacity-40 disabled:pointer-events-none">
+        Continuar →
+      </button>
+    </div>
+  </footer>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue, push, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC8xnyjHiD3r88xujIQvBCudL3879CnDtA",
+      authDomain: "cinebosco.firebaseapp.com",
+      databaseURL: "https://cinebosco-default-rtdb.firebaseio.com",
+      projectId: "cinebosco",
+      storageBucket: "cinebosco.firebasestorage.app",
+      messagingSenderId: "192454801597",
+      appId: "1:192454801597:web:876012fb5f5013f7f99fd4",
+      measurementId: "G-4BQ4DFS87C"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Estado por defecto si aún no se configura el Admin
+    let appConfig = {
+      eventDate: "Sábado 5 de Diciembre",
+      yapeName: "CineBosco Oficial",
+      yapePhone: "999 999 999",
+      yapeQrBase64: "",
+      shows: {
+        show1: {
+          id: "show1",
+          tag: "FUNCIÓN ORATORIANA • 5:00 PM",
+          title: "Intensa-Mente 2",
+          desc: "Función especial para niños del oratorio y familias. Apta para todo público.",
+          price: 5.00,
+          poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80"
+        },
+        show2: {
+          id: "show2",
+          tag: "FUNCIÓN JUVENIL • 7:00 PM",
+          title: "¿Y dónde están las rubias?",
+          desc: "Comedia clásica para disfrutar con amigos. Recomendada para mayores de 13 años.",
+          price: 7.00,
+          poster: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80"
+        }
+      },
+      snacks: [
+        { id: "sn1", name: "Combo Bosco (Canchita + Gaseosa)", price: 6.00, desc: "Canchita mediana salada + vaso de gaseosa helada." },
+        { id: "sn2", name: "Canchita Clásica", price: 3.50, desc: "Porción personal recién hecha." },
+        { id: "sn3", name: "Gaseosa / Bebida", price: 3.00, desc: "Vaso personal bien helado." },
+        { id: "sn4", name: "Hot-Dog Clásico", price: 4.50, desc: "Con cremas al gusto." }
+      ]
+    };
+
+    let occupiedSeats = { show1: {}, show2: {} };
+    let currentStep = 1;
+    let selectedShowId = null;
+    let selectedSeats = [];
+    let selectedSnacks = {};
+    let receiptBase64 = "";
+
+    // Escuchar configuración desde Firebase
+    onValue(ref(db, 'config'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        appConfig = { ...appConfig, ...data };
+        if (data.shows) appConfig.shows = { ...appConfig.shows, ...data.shows };
+        if (data.snacks) appConfig.snacks = data.snacks;
+      }
+      document.getElementById('db-status').textContent = "● En línea";
+      document.getElementById('db-status').className = "px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium";
+      document.getElementById('header-date').textContent = appConfig.eventDate;
+      renderMovies();
+      renderSnacks();
+      updateYapeInfo();
+    });
+
+    // Escuchar butacas ocupadas en tiempo real
+    onValue(ref(db, 'occupiedSeats'), (snapshot) => {
+      const data = snapshot.val() || {};
+      occupiedSeats.show1 = data.show1 || {};
+      occupiedSeats.show2 = data.show2 || {};
+      
+      // Si alguien ocupó una butaca que el usuario tenía seleccionada, quitarla
+      if (selectedShowId) {
+        const occ = occupiedSeats[selectedShowId] || {};
+        selectedSeats = selectedSeats.filter(s => !occ[s]);
+        renderSeats();
+        updateBottomBar();
+      }
+      renderMovies();
+    });
+
+    function renderMovies() {
+      const container = document.getElementById('movies-container');
+      container.innerHTML = '';
+      Object.values(appConfig.shows).forEach(show => {
+        const soldCount = Object.keys(occupiedSeats[show.id] || {}).length;
+        const available = 160 - soldCount;
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 hover:border-sky-500/60 rounded-2xl overflow-hidden flex flex-col transition shadow-lg";
+        card.innerHTML = `
+          <div class="h-44 bg-slate-800 relative overflow-hidden">
+            <img src="${show.poster}" alt="${show.title}" class="w-full h-full object-cover opacity-85" onerror="this.src='https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=600&q=80'" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent"></div>
+            <span class="absolute top-3 left-3 bg-sky-500 text-slate-950 text-[11px] font-extrabold px-2.5 py-1 rounded-lg shadow">${show.tag}</span>
+            <span class="absolute bottom-3 right-3 bg-slate-950/85 border border-slate-700 text-xs font-bold px-2.5 py-1 rounded-lg text-emerald-400">${available} libres</span>
+          </div>
+          <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
+            <div>
+              <h3 class="text-xl font-extrabold text-white">${show.title}</h3>
+              <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">${show.desc}</p>
+            </div>
+            <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+              <div>
+                <span class="text-[11px] text-slate-400 block">Entrada General</span>
+                <span class="text-lg font-extrabold text-sky-400">S/ ${Number(show.price).toFixed(2)}</span>
+              </div>
+              <button onclick="selectShow('${show.id}')" class="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs transition shadow-md">
+                Elegir Butacas →
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    window.selectShow = (showId) => {
+      selectedShowId = showId;
+      selectedSeats = [];
+      const show = appConfig.shows[showId];
+      document.getElementById('selected-show-badge').textContent = show.tag;
+      document.getElementById('selected-movie-title').textContent = `${show.title} (S/ ${Number(show.price).toFixed(2)} c/u)`;
+      renderSeats();
+      goToStep(2);
+    };
+
+    function renderSeats() {
+      const grid = document.getElementById('seats-grid');
+      if (!grid || !selectedShowId) return;
+      grid.innerHTML = '';
+      const rows = "ABCDEFGHIJKLMNOP".split("");
+      const occ = occupiedSeats[selectedShowId] || {};
+
+      rows.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = "flex items-center justify-center gap-1";
+
+        const leftLabel = document.createElement('span');
+        leftLabel.className = "w-5 text-[11px] font-bold text-slate-500 text-center";
+        leftLabel.textContent = row;
+        rowDiv.appendChild(leftLabel);
+
+        const leftBlock = document.createElement('div');
+        leftBlock.className = "grid grid-cols-5 gap-1";
+        for (let c = 1; c <= 5; c++) leftBlock.appendChild(createSeatBtn(`${row}${c}`, occ));
+        rowDiv.appendChild(leftBlock);
+
+        const aisle = document.createElement('div');
+        aisle.className = "w-8";
+        rowDiv.appendChild(aisle);
+
+        const rightBlock = document.createElement('div');
+        rightBlock.className = "grid grid-cols-5 gap-1";
+        for (let c = 6; c <= 10; c++) rightBlock.appendChild(createSeatBtn(`${row}${c}`, occ));
+        rowDiv.appendChild(rightBlock);
+
+        const rightLabel = document.createElement('span');
+        rightLabel.className = "w-5 text-[11px] font-bold text-slate-500 text-center";
+        rightLabel.textContent = row;
+        rowDiv.appendChild(rightLabel);
+
+        grid.appendChild(rowDiv);
+      });
+    }
+
+    function createSeatBtn(seatId, occ) {
+      const btn = document.createElement('button');
+      const isOccupied = Boolean(occ[seatId]);
+      const isSelected = selectedSeats.includes(seatId);
+
+      btn.type = "button";
+      btn.textContent = seatId;
+      btn.disabled = isOccupied;
+
+      if (isOccupied) {
+        btn.className = "seat-btn w-7 h-7 rounded-md bg-rose-600/80 border border-rose-500/60 text-[9px] font-bold text-rose-200 cursor-not-allowed";
+      } else if (isSelected) {
+        btn.className = "seat-btn w-7 h-7 rounded-md bg-sky-500 border border-sky-300 text-[9px] font-extrabold text-slate-950 shadow-md shadow-sky-500/40";
+      } else {
+        btn.className = "seat-btn w-7 h-7 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[9px] font-semibold text-slate-300";
+      }
+
+      btn.onclick = () => {
+        if (selectedSeats.includes(seatId)) {
+          selectedSeats = selectedSeats.filter(s => s !== seatId);
+        } else {
+          if (selectedSeats.length >= 10) {
+            alert("Máximo 10 butacas por compra.");
+            return;
+          }
+          selectedSeats.push(seatId);
+        }
+        renderSeats();
+        updateBottomBar();
+      };
+      return btn;
+    }
+
+    function renderSnacks() {
+      const container = document.getElementById('snacks-container');
+      container.innerHTML = '';
+      (appConfig.snacks || []).forEach(sn => {
+        const qty = selectedSnacks[sn.id] || 0;
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-3";
+        card.innerHTML = `
+          <div>
+            <h4 class="font-bold text-sm text-white">${sn.name}</h4>
+            <p class="text-xs text-slate-400 mt-0.5">${sn.desc || ''}</p>
+            <p class="text-sm font-extrabold text-amber-400 mt-1.5">S/ ${Number(sn.price).toFixed(2)}</p>
+          </div>
+          <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl p-1">
+            <button onclick="changeSnack('${sn.id}', -1)" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold">-</button>
+            <span class="w-6 text-center text-sm font-bold">${qty}</span>
+            <button onclick="changeSnack('${sn.id}', 1)" class="w-7 h-7 rounded-lg bg-sky-500 text-slate-950 font-bold">+</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    window.changeSnack = (id, delta) => {
+      const next = (selectedSnacks[id] || 0) + delta;
+      if (next <= 0) delete selectedSnacks[id];
+      else selectedSnacks[id] = next;
+      renderSnacks();
+      updateBottomBar();
+    };
+
+    function calculateTotal() {
+      if (!selectedShowId) return 0;
+      const ticketPrice = Number(appConfig.shows[selectedShowId].price);
+      let total = selectedSeats.length * ticketPrice;
+      (appConfig.snacks || []).forEach(sn => {
+        if (selectedSnacks[sn.id]) total += selectedSnacks[sn.id] * Number(sn.price);
+      });
+      return total;
+    }
+
+    function updateBottomBar() {
+      const bar = document.getElementById('bottom-bar');
+      const btn = document.getElementById('btn-next-step');
+      if (currentStep === 1 || currentStep >= 4) {
+        bar.classList.add('hidden');
+        return;
+      }
+      bar.classList.remove('hidden');
+      const total = calculateTotal();
+      document.getElementById('bar-seats-label').textContent = selectedSeats.length > 0
+        ? `Butacas: ${selectedSeats.sort().join(', ')}`
+        : 'Selecciona al menos 1 butaca';
+      document.getElementById('bar-total-label').textContent = `S/ ${total.toFixed(2)}`;
+      btn.disabled = selectedSeats.length === 0;
+      btn.textContent = currentStep === 2 ? 'Ir a Dulcería →' : 'Ir a Pagar con Yape →';
+    }
+
+    window.goToStep = (step) => {
+      if (step > 1 && !selectedShowId) return;
+      if (step > 2 && selectedSeats.length === 0) return;
+      currentStep = step;
+      [1, 2, 3, 4, 5].forEach(s => {
+        document.getElementById(`step-${s}`).classList.toggle('hidden', s !== step);
+        const ind = document.getElementById(`step-ind-${s}`);
+        if (ind) {
+          ind.className = s <= step ? "flex items-center gap-1.5 text-sky-400" : "flex items-center gap-1.5 text-slate-500";
+          ind.querySelector('span').className = s <= step
+            ? "w-5 h-5 rounded-full bg-sky-500 text-slate-950 flex items-center justify-center font-bold"
+            : "w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold";
+        }
+      });
+      if (step === 4) renderCheckout();
+      updateBottomBar();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.nextStep = () => {
+      if (currentStep < 4) goToStep(currentStep + 1);
+    };
+
+    function updateYapeInfo() {
+      document.getElementById('yape-owner-name').textContent = appConfig.yapeName || "CineBosco Oficial";
+      document.getElementById('yape-owner-phone').textContent = appConfig.yapePhone || "999 999 999";
+      const img = document.getElementById('yape-qr-img');
+      const ph = document.getElementById('yape-qr-placeholder');
+      if (appConfig.yapeQrBase64) {
+        img.src = appConfig.yapeQrBase64;
+        img.classList.remove('hidden');
+        ph.classList.add('hidden');
+      } else {
+        img.classList.add('hidden');
+        ph.classList.remove('hidden');
+      }
+    }
+
+    function renderCheckout() {
+      const show = appConfig.shows[selectedShowId];
+      const ticketSubtotal = selectedSeats.length * Number(show.price);
+      let html = `
+        <div class="flex justify-between">
+          <span><strong>${show.title}</strong> (${selectedSeats.length}x S/ ${Number(show.price).toFixed(2)})</span>
+          <span class="font-bold text-white">S/ ${ticketSubtotal.toFixed(2)}</span>
+        </div>
+        <div class="text-xs text-sky-400">Butacas: ${selectedSeats.sort().join(', ')}</div>
+      `;
+      (appConfig.snacks || []).forEach(sn => {
+        const qty = selectedSnacks[sn.id];
+        if (qty) {
+          html += `
+            <div class="flex justify-between text-xs pt-1">
+              <span>${qty}x ${sn.name}</span>
+              <span class="font-semibold">S/ ${(qty * Number(sn.price)).toFixed(2)}</span>
+            </div>
+          `;
+        }
+      });
+      document.getElementById('checkout-summary').innerHTML = html;
+      document.getElementById('checkout-total').textContent = `S/ ${calculateTotal().toFixed(2)}`;
+    }
+
+    // Comprimir imagen del comprobante para guardar rápido en Firebase
+    window.handleReceiptUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxW = 450;
+          const scale = maxW / img.width;
+          canvas.width = maxW;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          receiptBase64 = canvas.toDataURL('image/jpeg', 0.65);
+          document.getElementById('receipt-status').classList.remove('hidden');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    window.submitOrder = async () => {
+      const name = document.getElementById('buyer-name').value.trim();
+      const phone = document.getElementById('buyer-phone').value.trim();
+      const opCode = document.getElementById('yape-op-code').value.trim();
+
+      if (!name || !phone) {
+        alert("Por favor ingresa tu nombre y número de WhatsApp.");
+        return;
+      }
+      if (!opCode) {
+        alert("Por favor ingresa el número de operación del Yape.");
+        return;
+      }
+
+      const btn = document.getElementById('btn-submit-order');
+      btn.disabled = true;
+      btn.textContent = "Registrando reserva...";
+
+      // Verificar disponibilidad final
+      const occ = occupiedSeats[selectedShowId] || {};
+      const conflict = selectedSeats.find(s => occ[s]);
+      if (conflict) {
+        alert(`Lo sentimos, la butaca ${conflict} acaba de ser reservada por otra persona. Elige otra por favor.`);
+        btn.disabled = false;
+        btn.textContent = "Confirmar Reserva y Generar Ticket";
+        goToStep(2);
+        return;
+      }
+
+      const orderCode = `CB-${Math.floor(1000 + Math.random() * 9000)}`;
+      const show = appConfig.shows[selectedShowId];
+      const snacksList = [];
+      (appConfig.snacks || []).forEach(sn => {
+        if (selectedSnacks[sn.id]) snacksList.push(`${selectedSnacks[sn.id]}x ${sn.name}`);
+      });
+
+      const orderData = {
+        code: orderCode,
+        showId: selectedShowId,
+        showTag: show.tag,
+        movieTitle: show.title,
+        buyerName: name,
+        buyerPhone: phone,
+        seats: selectedSeats.sort(),
+        snacks: snacksList.join(', ') || 'Ninguno',
+        total: calculateTotal(),
+        paymentMethod: 'Yape',
+        yapeOpCode: opCode,
+        receiptBase64: receiptBase64,
+        status: 'pending', // pending | approved
+        checkedIn: false,
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        const newOrderRef = push(ref(db, 'orders'));
+        await set(newOrderRef, orderData);
+
+        // Bloquear butacas en tiempo real
+        const seatUpdates = {};
+        selectedSeats.forEach(s => {
+          seatUpdates[`occupiedSeats/${selectedShowId}/${s}`] = {
+            orderId: newOrderRef.key,
+            code: orderCode,
+            buyerName: name
+          };
+        });
+        await update(ref(db), seatUpdates);
+
+        // Mostrar Ticket
+        document.getElementById('tk-code').textContent = orderCode;
+        document.getElementById('tk-name').textContent = name;
+        document.getElementById('tk-show').textContent = show.tag;
+        document.getElementById('tk-movie').textContent = show.title;
+        document.getElementById('tk-seats').textContent = selectedSeats.sort().join(', ');
+        document.getElementById('tk-snacks').textContent = snacksList.join(', ') || 'Ninguno';
+
+        const qrContainer = document.getElementById('ticket-qrcode');
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, { text: orderCode, width: 150, height: 150 });
+
+        const waMsg = encodeURIComponent(
+          `🎬 *TICKET CINEBOSCO*\n` +
+          `Código: *${orderCode}*\n` +
+          `Titular: ${name}\n` +
+          `Función: ${show.tag} (${show.title})\n` +
+          `Butacas: *${selectedSeats.sort().join(', ')}*\n` +
+          `Dulcería: ${snacksList.join(', ') || 'Ninguno'}\n` +
+          `Total Yape: S/ ${calculateTotal().toFixed(2)} (Op: ${opCode})`
+        );
+        document.getElementById('btn-whatsapp-share').href = `https://wa.me/51${phone.replace(/\D/g, '')}?text=${waMsg}`;
+
+        goToStep(5);
+      } catch (err) {
+        console.error(err);
+        alert("Hubo un error al conectar con la base de datos. Verifica que Realtime Database esté en modo prueba.");
+        btn.disabled = false;
+        btn.textContent = "Confirmar Reserva y Generar Ticket";
+      }
+    };
+  </script>
+</body>
+</html>

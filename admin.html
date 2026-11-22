@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineBosco Admin | Control y Taquilla</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #090d16; color: #f8fafc; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- LOGIN OVERLAY -->
+  <div id="login-screen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="text-center">
+        <div class="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center text-2xl mx-auto mb-2">🔐</div>
+        <h1 class="text-xl font-extrabold text-white">Panel Admin CineBosco</h1>
+        <p class="text-xs text-slate-400 mt-1">Ingresa la clave de organizador</p>
+      </div>
+      <input type="password" id="admin-pass-input" placeholder="Contraseña (default: bosco2026)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-sky-500 focus:outline-none" onkeyup="if(event.key==='Enter') checkLogin()" />
+      <button onclick="checkLogin()" class="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-sm transition">Ingresar al Panel</button>
+    </div>
+  </div>
+
+  <!-- ADMIN APP -->
+  <div id="admin-app" class="hidden max-w-6xl mx-auto px-4 py-5 space-y-6">
+    <!-- Top Bar -->
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🎬</span>
+        <div>
+          <h1 class="font-extrabold text-lg text-white">CineBosco — Centro de Control</h1>
+          <p class="text-xs text-emerald-400 font-medium" id="sync-label">● Sincronizado en tiempo real</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="switchTab('orders')" id="tab-orders" class="px-3.5 py-2 rounded-xl bg-sky-500 text-slate-950 font-bold text-xs">1. Yapes y Reservas</button>
+        <button onclick="switchTab('pos')" id="tab-pos" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">2. Taquilla Física</button>
+        <button onclick="switchTab('sala')" id="tab-sala" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">3. Mapa Sala</button>
+        <button onclick="switchTab('config')" id="tab-config" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">⚙️ Configurar Web</button>
+      </div>
+    </header>
+
+    <!-- KPIs Rápidos -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+        <p class="text-xs text-slate-400">Recaudado Confirmado</p>
+        <p class="text-2xl font-extrabold text-emerald-400 mt-1" id="kpi-total">S/ 0.00</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+        <p class="text-xs text-slate-400">Yapes por Aprobar</p>
+        <p class="text-2xl font-extrabold text-amber-400 mt-1" id="kpi-pending">0</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+        <p class="text-xs text-slate-400">Butacas 5:00 PM</p>
+        <p class="text-2xl font-extrabold text-sky-400 mt-1" id="kpi-show1">0 / 160</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+        <p class="text-xs text-slate-400">Butacas 7:00 PM</p>
+        <p class="text-2xl font-extrabold text-indigo-400 mt-1" id="kpi-show2">0 / 160</p>
+      </div>
+    </div>
+
+    <!-- TAB 1: ÓRDENES, VALIDACIÓN DE YAPE Y CONTROL DE PUERTA -->
+    <section id="view-orders" class="space-y-4">
+      <div class="flex flex-col sm:flex-row gap-3 justify-between">
+        <input type="text" id="search-order" oninput="renderOrders()" placeholder="🔍 Buscar por código (CB-XXXX), nombre o butaca..." class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white flex-1 focus:border-sky-500 focus:outline-none" />
+        <button onclick="exportCSV()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs">📊 Exportar Excel (CSV)</button>
+      </div>
+
+      <div id="orders-list" class="grid md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- TAB 2: VENTA EN TAQUILLA FÍSICA -->
+    <section id="view-pos" class="hidden bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-5">
+      <h2 class="text-lg font-bold text-white">🎟️ Venta Directa en Puerta (Efectivo / Yape)</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Función</label>
+            <select id="pos-show" onchange="renderPosSeats()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white">
+              <option value="show1">Función Oratoriana (5:00 PM)</option>
+              <option value="show2">Función Juvenil (7:00 PM)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Nombre del Comprador</label>
+            <input type="text" id="pos-name" placeholder="Ej. Cliente Taquilla" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Método de Pago</label>
+              <select id="pos-method" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white">
+                <option value="Efectivo">💵 Efectivo</option>
+                <option value="Yape">📱 Yape en puerta</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Monto Extra Dulcería (S/)</label>
+              <input type="number" id="pos-extra" value="0" min="0" step="0.5" oninput="updatePosTotal()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white" />
+            </div>
+          </div>
+          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div>
+              <p class="text-xs text-slate-400" id="pos-seats-text">Butacas: Ninguna</p>
+              <p class="text-xl font-extrabold text-sky-400" id="pos-total-text">S/ 0.00</p>
+            </div>
+            <button onclick="createPosOrder()" class="px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs">Registrar Venta</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <p class="text-center text-[10px] font-bold tracking-widest text-sky-400 mb-3">PANTALLA</p>
+          <div id="pos-seats-grid" class="space-y-1 min-w-[360px]"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: MAPA DE OCUPACIÓN EN VIVO -->
+    <section id="view-sala" class="hidden bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-white">💺 Estado de Sala en Vivo</h2>
+        <select id="map-show-select" onchange="renderLiveMap()" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+          <option value="show1">Función Oratoriana (5:00 PM)</option>
+          <option value="show2">Función Juvenil (7:00 PM)</option>
+        </select>
+      </div>
+      <div class="overflow-x-auto bg-slate-950 p-5 rounded-xl border border-slate-800">
+        <div id="live-map-grid" class="space-y-1.5 min-w-[420px] max-w-xl mx-auto"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: CONFIGURACIÓN DE LA WEB PÚBLICA -->
+    <section id="view-config" class="hidden bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-white">⚙️ Configurar Cartelera, Precios y QR Yape</h2>
+        <button onclick="saveConfig()" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs">💾 Guardar Cambios en la Web</button>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Fecha del Evento</label>
+          <input type="text" id="cfg-date" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Nombre Titular Yape</label>
+          <input type="text" id="cfg-yape-name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Celular Yape</label>
+          <input type="text" id="cfg-yape-phone" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
+        </div>
+      </div>
+
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center gap-4">
+        <img id="cfg-qr-preview" src="" class="w-24 h-24 rounded-lg bg-white object-contain hidden" />
+        <div class="flex-1">
+          <label class="block text-xs font-bold text-purple-400 mb-1">Subir Imagen de tu QR de Yape</label>
+          <input type="file" accept="image/*" onchange="uploadYapeQr(event)" class="text-xs text-slate-300" />
+          <p class="text-[11px] text-slate-500 mt-1">Se mostrará automáticamente a los compradores al momento de pagar.</p>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <h3 class="font-bold text-sky-400 text-sm">Función 1 (5:00 PM)</h3>
+          <input type="text" id="cfg-s1-tag" placeholder="Etiqueta horario" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="text" id="cfg-s1-title" placeholder="Título película" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="text" id="cfg-s1-desc" placeholder="Descripción corta" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="text" id="cfg-s1-poster" placeholder="URL imagen póster" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="number" id="cfg-s1-price" placeholder="Precio entrada S/" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <h3 class="font-bold text-indigo-400 text-sm">Función 2 (7:00 PM)</h3>
+          <input type="text" id="cfg-s2-tag" placeholder="Etiqueta horario" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="text" id="cfg-s2-title" placeholder="Título película" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="text" id="cfg-s2-desc" placeholder="Descripción corta" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="text" id="cfg-s2-poster" placeholder="URL imagen póster" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <input type="number" id="cfg-s2-price" placeholder="Precio entrada S/" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+        <div>
+          <label class="text-xs text-slate-400 mr-2">Contraseña del Admin:</label>
+          <input type="text" id="cfg-admin-pass" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white" />
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal para ver captura de Yape -->
+  <div id="receipt-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+    <div class="bg-slate-900 p-4 rounded-2xl max-w-sm w-full space-y-3" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-sm text-white">Comprobante Yape</h3>
+        <button onclick="document.getElementById('receipt-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <img id="modal-receipt-img" src="" class="w-full rounded-xl max-h-[70vh] object-contain" />
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue, set, update, remove, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC8xnyjHiD3r88xujIQvBCudL3879CnDtA",
+      authDomain: "cinebosco.firebaseapp.com",
+      databaseURL: "https://cinebosco-default-rtdb.firebaseio.com",
+      projectId: "cinebosco",
+      storageBucket: "cinebosco.firebasestorage.app",
+      messagingSenderId: "192454801597",
+      appId: "1:192454801597:web:876012fb5f5013f7f99fd4",
+      measurementId: "G-4BQ4DFS87C"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let adminPassword = "bosco2026";
+    let ordersData = {};
+    let occupiedData = { show1: {}, show2: {} };
+    let posSelectedSeats = [];
+    let currentConfig = {
+      eventDate: "Sábado 5 de Diciembre",
+      yapeName: "CineBosco Oficial",
+      yapePhone: "999 999 999",
+      yapeQrBase64: "",
+      adminPass: "bosco2026",
+      shows: {
+        show1: { id: "show1", tag: "FUNCIÓN ORATORIANA • 5:00 PM", title: "Intensa-Mente 2", desc: "Función especial para niños del oratorio y familias.", price: 5.00, poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80" },
+        show2: { id: "show2", tag: "FUNCIÓN JUVENIL • 7:00 PM", title: "¿Y dónde están las rubias?", desc: "Comedia clásica para disfrutar con amigos.", price: 7.00, poster: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80" }
+      }
+    };
+
+    onValue(ref(db, 'config'), (snap) => {
+      if (snap.val()) {
+        currentConfig = { ...currentConfig, ...snap.val() };
+        if (currentConfig.adminPass) adminPassword = currentConfig.adminPass;
+      }
+      fillConfigForm();
+    });
+
+    onValue(ref(db, 'orders'), (snap) => {
+      ordersData = snap.val() || {};
+      updateKPIs();
+      renderOrders();
+    });
+
+    onValue(ref(db, 'occupiedSeats'), (snap) => {
+      const val = snap.val() || {};
+      occupiedData.show1 = val.show1 || {};
+      occupiedData.show2 = val.show2 || {};
+      updateKPIs();
+      renderPosSeats();
+      renderLiveMap();
+    });
+
+    window.checkLogin = () => {
+      const val = document.getElementById('admin-pass-input').value;
+      if (val === adminPassword) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('admin-app').classList.remove('hidden');
+      } else {
+        alert("Contraseña incorrecta");
+      }
+    };
+
+    window.switchTab = (tab) => {
+      ['orders', 'pos', 'sala', 'config'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`tab-${t}`).className = t === tab
+          ? "px-3.5 py-2 rounded-xl bg-sky-500 text-slate-950 font-bold text-xs"
+          : "px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs";
+      });
+    };
+
+    function updateKPIs() {
+      let confirmedTotal = 0;
+      let pendingCount = 0;
+      Object.values(ordersData).forEach(o => {
+        if (o.status === 'approved') confirmedTotal += Number(o.total || 0);
+        if (o.status === 'pending') pendingCount++;
+      });
+      document.getElementById('kpi-total').textContent = `S/ ${confirmedTotal.toFixed(2)}`;
+      document.getElementById('kpi-pending').textContent = pendingCount;
+      document.getElementById('kpi-show1').textContent = `${Object.keys(occupiedData.show1).length} / 160`;
+      document.getElementById('kpi-show2').textContent = `${Object.keys(occupiedData.show2).length} / 160`;
+    }
+
+    window.renderOrders = () => {
+      const q = document.getElementById('search-order').value.toLowerCase();
+      const list = document.getElementById('orders-list');
+      list.innerHTML = '';
+
+      const entries = Object.entries(ordersData).reverse();
+      entries.forEach(([key, o]) => {
+        const text = `${o.code} ${o.buyerName} ${(o.seats || []).join(' ')} ${o.yapeOpCode}`.toLowerCase();
+        if (q && !text.includes(q)) return;
+
+        const isPending = o.status === 'pending';
+        const card = document.createElement('div');
+        card.className = `bg-slate-900 border ${isPending ? 'border-amber-500/50' : 'border-slate-800'} p-4 rounded-2xl space-y-3`;
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="font-mono font-extrabold text-sky-400 text-sm">${o.code}</span>
+              <h3 class="font-bold text-white text-base">${o.buyerName} <span class="text-xs font-normal text-slate-400">(${o.buyerPhone || 'Taquilla'})</span></h3>
+              <p class="text-xs text-slate-400">${o.showTag} • ${o.movieTitle}</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${isPending ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">
+              ${isPending ? '⏳ Por Validar' : '✓ Aprobado'}
+            </span>
+          </div>
+
+          <div class="bg-slate-950 p-3 rounded-xl text-xs space-y-1 border border-slate-800/80">
+            <div class="flex justify-between"><span class="text-slate-400">Butacas:</span><span class="font-bold text-amber-400">${(o.seats || []).join(', ')}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Dulcería:</span><span class="text-slate-200">${o.snacks}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Pago (${o.paymentMethod}):</span><span class="font-extrabold text-emerald-400">S/ ${Number(o.total).toFixed(2)} ${o.yapeOpCode ? `(Op: ${o.yapeOpCode})` : ''}</span></div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            ${o.receiptBase64 ? `<button onclick="viewReceipt('${key}')" class="px-3 py-1.5 rounded-lg bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-bold">🖼️ Ver Captura</button>` : ''}
+            ${isPending ? `
+              <button onclick="approveOrder('${key}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 text-xs font-extrabold">✓ Aprobar Yape</button>
+              <button onclick="rejectOrder('${key}')" class="px-3 py-1.5 rounded-lg bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-bold">✕ Rechazar y Liberar</button>
+            ` : `
+              <button onclick="toggleCheckIn('${key}', ${!o.checkedIn})" class="px-3 py-1.5 rounded-lg ${o.checkedIn ? 'bg-slate-800 text-slate-400' : 'bg-sky-500 text-slate-950'} text-xs font-extrabold">
+                ${o.checkedIn ? '✓ Ya ingresó a sala' : '🎟️ Marcar Ingreso en Puerta'}
+              </button>
+            `}
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    };
+
+    window.viewReceipt = (key) => {
+      document.getElementById('modal-receipt-img').src = ordersData[key].receiptBase64;
+      document.getElementById('receipt-modal').classList.remove('hidden');
+    };
+
+    window.approveOrder = async (key) => {
+      await update(ref(db, `orders/${key}`), { status: 'approved' });
+    };
+
+    window.rejectOrder = async (key) => {
+      if (!confirm("¿Seguro que deseas rechazar esta reserva y liberar sus butacas?")) return;
+      const o = ordersData[key];
+      const updates = {};
+      (o.seats || []).forEach(s => { updates[`occupiedSeats/${o.showId}/${s}`] = null; });
+      updates[`orders/${key}`] = null;
+      await update(ref(db), updates);
+    };
+
+    window.toggleCheckIn = async (key, state) => {
+      await update(ref(db, `orders/${key}`), { checkedIn: state });
+    };
+
+    // POS Taquilla
+    window.renderPosSeats = () => {
+      const showId = document.getElementById('pos-show').value;
+      const grid = document.getElementById('pos-seats-grid');
+      grid.innerHTML = '';
+      const rows = "ABCDEFGHIJKLMNOP".split("");
+      const occ = occupiedData[showId] || {};
+
+      rows.forEach(r => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = "flex items-center justify-center gap-1";
+        for (let c = 1; c <= 10; c++) {
+          if (c === 6) {
+            const sp = document.createElement('span');
+            sp.className = "w-4";
+            rowDiv.appendChild(sp);
+          }
+          const id = `${r}${c}`;
+          const btn = document.createElement('button');
+          btn.textContent = id;
+          const isOcc = Boolean(occ[id]);
+          const isSel = posSelectedSeats.includes(id);
+          btn.disabled = isOcc;
+          btn.className = isOcc
+            ? "w-6 h-6 rounded bg-rose-600/70 text-[8px] text-white cursor-not-allowed"
+            : isSel
+              ? "w-6 h-6 rounded bg-sky-500 text-[8px] font-bold text-slate-950"
+              : "w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-[8px] text-slate-300";
+          btn.onclick = () => {
+            if (posSelectedSeats.includes(id)) posSelectedSeats = posSelectedSeats.filter(x => x !== id);
+            else posSelectedSeats.push(id);
+            renderPosSeats();
+            updatePosTotal();
+          };
+          rowDiv.appendChild(btn);
+        }
+        grid.appendChild(rowDiv);
+      });
+      updatePosTotal();
+    };
+
+    window.updatePosTotal = () => {
+      const showId = document.getElementById('pos-show').value;
+      const price = Number(currentConfig.shows[showId].price);
+      const extra = Number(document.getElementById('pos-extra').value || 0);
+      const total = (posSelectedSeats.length * price) + extra;
+      document.getElementById('pos-seats-text').textContent = `Butacas: ${posSelectedSeats.join(', ') || 'Ninguna'}`;
+      document.getElementById('pos-total-text').textContent = `S/ ${total.toFixed(2)}`;
+    };
+
+    window.createPosOrder = async () => {
+      if (posSelectedSeats.length === 0) return alert("Selecciona al menos 1 butaca.");
+      const showId = document.getElementById('pos-show').value;
+      const show = currentConfig.shows[showId];
+      const name = document.getElementById('pos-name').value.trim() || "Cliente Taquilla";
+      const method = document.getElementById('pos-method').value;
+      const extra = Number(document.getElementById('pos-extra').value || 0);
+      const total = (posSelectedSeats.length * Number(show.price)) + extra;
+      const code = `CB-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const newRef = push(ref(db, 'orders'));
+      await set(newRef, {
+        code, showId, showTag: show.tag, movieTitle: show.title,
+        buyerName: name, buyerPhone: '', seats: posSelectedSeats.sort(),
+        snacks: extra > 0 ? `Extra S/ ${extra.toFixed(2)}` : 'Ninguno',
+        total, paymentMethod: method, status: 'approved', checkedIn: true,
+        createdAt: new Date().toISOString()
+      });
+
+      const seatUpdates = {};
+      posSelectedSeats.forEach(s => {
+        seatUpdates[`occupiedSeats/${showId}/${s}`] = { orderId: newRef.key, code, buyerName: name };
+      });
+      await update(ref(db), seatUpdates);
+
+      posSelectedSeats = [];
+      document.getElementById('pos-name').value = '';
+      document.getElementById('pos-extra').value = '0';
+      alert(`Venta registrada con éxito. Código: ${code}`);
+    };
+
+    // Mapa en Vivo
+    window.renderLiveMap = () => {
+      const showId = document.getElementById('map-show-select').value;
+      const grid = document.getElementById('live-map-grid');
+      grid.innerHTML = '';
+      const occ = occupiedData[showId] || {};
+      "ABCDEFGHIJKLMNOP".split("").forEach(r => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = "flex items-center justify-center gap-1";
+        for (let c = 1; c <= 10; c++) {
+          if (c === 6) { const sp = document.createElement('span'); sp.className = "w-6"; rowDiv.appendChild(sp); }
+          const id = `${r}${c}`;
+          const info = occ[id];
+          const btn = document.createElement('button');
+          btn.textContent = id;
+          btn.className = info
+            ? "w-7 h-7 rounded bg-rose-600 text-[9px] font-bold text-white"
+            : "w-7 h-7 rounded bg-slate-800 text-[9px] text-slate-400";
+          btn.onclick = () => {
+            if (info) alert(`Butaca ${id}\nTitular: ${info.buyerName}\nCódigo: ${info.code}`);
+            else alert(`Butaca ${id}: Libre`);
+          };
+          rowDiv.appendChild(btn);
+        }
+        grid.appendChild(rowDiv);
+      });
+    };
+
+    // Configuración
+    function fillConfigForm() {
+      document.getElementById('cfg-date').value = currentConfig.eventDate || '';
+      document.getElementById('cfg-yape-name').value = currentConfig.yapeName || '';
+      document.getElementById('cfg-yape-phone').value = currentConfig.yapePhone || '';
+      document.getElementById('cfg-admin-pass').value = currentConfig.adminPass || 'bosco2026';
+      if (currentConfig.yapeQrBase64) {
+        const img = document.getElementById('cfg-qr-preview');
+        img.src = currentConfig.yapeQrBase64;
+        img.classList.remove('hidden');
+      }
+      const s1 = currentConfig.shows.show1;
+      document.getElementById('cfg-s1-tag').value = s1.tag;
+      document.getElementById('cfg-s1-title').value = s1.title;
+      document.getElementById('cfg-s1-desc').value = s1.desc;
+      document.getElementById('cfg-s1-poster').value = s1.poster;
+      document.getElementById('cfg-s1-price').value = s1.price;
+
+      const s2 = currentConfig.shows.show2;
+      document.getElementById('cfg-s2-tag').value = s2.tag;
+      document.getElementById('cfg-s2-title').value = s2.title;
+      document.getElementById('cfg-s2-desc').value = s2.desc;
+      document.getElementById('cfg-s2-poster').value = s2.poster;
+      document.getElementById('cfg-s2-price').value = s2.price;
+    }
+
+    window.uploadYapeQr = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        currentConfig.yapeQrBase64 = ev.target.result;
+        const img = document.getElementById('cfg-qr-preview');
+        img.src = ev.target.result;
+        img.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    };
+
+    window.saveConfig = async () => {
+      currentConfig.eventDate = document.getElementById('cfg-date').value;
+      currentConfig.yapeName = document.getElementById('cfg-yape-name').value;
+      currentConfig.yapePhone = document.getElementById('cfg-yape-phone').value;
+      currentConfig.adminPass = document.getElementById('cfg-admin-pass').value;
+      currentConfig.shows.show1 = {
+        id: "show1",
+        tag: document.getElementById('cfg-s1-tag').value,
+        title: document.getElementById('cfg-s1-title').value,
+        desc: document.getElementById('cfg-s1-desc').value,
+        poster: document.getElementById('cfg-s1-poster').value,
+        price: Number(document.getElementById('cfg-s1-price').value)
+      };
+      currentConfig.shows.show2 = {
+        id: "show2",
+        tag: document.getElementById('cfg-s2-tag').value,
+        title: document.getElementById('cfg-s2-title').value,
+        desc: document.getElementById('cfg-s2-desc').value,
+        poster: document.getElementById('cfg-s2-poster').value,
+        price: Number(document.getElementById('cfg-s2-price').value)
+      };
+      await set(ref(db, 'config'), currentConfig);
+      alert("¡Configuración guardada! La web pública ya muestra los cambios.");
+    };
+
+    window.exportCSV = () => {
+      let csv = "Codigo,Fecha,Titular,Telefono,Funcion,Pelicula,Butacas,Dulceria,Total,MetodoPago,OpYape,Estado,Ingreso\n";
+      Object.values(ordersData).forEach(o => {
+        csv += `"${o.code}","${o.createdAt}","${o.buyerName}","${o.buyerPhone}","${o.showTag}","${o.movieTitle}","${(o.seats||[]).join(' ')}","${o.snacks}",${o.total},"${o.paymentMethod}","${o.yapeOpCode||''}","${o.status}",${o.checkedIn ? 'SI' : 'NO'}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "Ventas_CineBosco.csv";
+      link.click();
+    };
+  </script>
+</body>
+</html>
