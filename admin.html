@@ -55,25 +55,44 @@
         <p class="text-2xl font-extrabold text-amber-400 mt-1" id="kpi-pending">0</p>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-        <p class="text-xs text-slate-400">Butacas 5:00 PM</p>
+        <p class="text-xs text-slate-400" id="kpi-s1-label">Butacas Función 1</p>
         <p class="text-2xl font-extrabold text-sky-400 mt-1" id="kpi-show1">0 / 160</p>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-        <p class="text-xs text-slate-400">Butacas 7:00 PM</p>
+        <p class="text-xs text-slate-400" id="kpi-s2-label">Butacas Función 2</p>
         <p class="text-2xl font-extrabold text-indigo-400 mt-1" id="kpi-show2">0 / 160</p>
       </div>
-      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl col-span-2 lg:col-span-1">
-        <p class="text-xs text-slate-400">🍿 Dulcería Entregada</p>
-        <p class="text-2xl font-extrabold text-amber-300 mt-1" id="kpi-snacks">0 / 0</p>
-        <p class="text-[11px] text-slate-400 mt-0.5" id="kpi-snacks-pending">0 pendientes</p>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl col-span-2 lg:col-span-1 space-y-1">
+        <p class="text-xs text-slate-400">🍿 Dulcería por Función</p>
+        <div class="flex items-center justify-between text-xs pt-0.5">
+          <span class="text-sky-300 font-semibold" id="kpi-snacks-s1-name">Func. 1:</span>
+          <span class="font-extrabold text-white" id="kpi-snacks-s1">0/0 <span class="text-amber-300 font-semibold">(0 pend.)</span></span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-indigo-300 font-semibold" id="kpi-snacks-s2-name">Func. 2:</span>
+          <span class="font-extrabold text-white" id="kpi-snacks-s2">0/0 <span class="text-amber-300 font-semibold">(0 pend.)</span></span>
+        </div>
       </div>
     </div>
 
     <!-- TAB 1: ÓRDENES, VALIDACIÓN DE YAPE Y CONTROL DE PUERTA -->
     <section id="view-orders" class="space-y-4">
-      <div class="flex flex-col sm:flex-row gap-3 justify-between">
+      <div class="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
         <input type="text" id="search-order" oninput="renderOrders()" placeholder="🔍 Buscar por código (CB-XXXX), nombre o butaca..." class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white flex-1 focus:border-sky-500 focus:outline-none" />
-        <button onclick="exportCSV()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs">📊 Exportar Excel (CSV)</button>
+
+        <div class="flex flex-wrap gap-2 items-center">
+          <select id="filter-show" onchange="renderOrders()" class="bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold text-white focus:border-sky-500 focus:outline-none">
+            <option value="all">🎬 Todas las funciones</option>
+            <option value="show1" id="opt-filter-show1">Función 1</option>
+            <option value="show2" id="opt-filter-show2">Función 2</option>
+          </select>
+
+          <button type="button" id="btn-filter-pending-snacks" onclick="togglePendingSnacksFilter()" class="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400/50 text-slate-300 font-bold text-xs transition">
+            🍿 Solo dulcería pendiente
+          </button>
+
+          <button onclick="exportCSV()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs">📊 Exportar Excel (CSV)</button>
+        </div>
       </div>
 
       <div id="orders-list" class="grid md:grid-cols-2 gap-4"></div>
@@ -290,6 +309,7 @@
     let occupiedData = { show1: {}, show2: {} };
     let posSelectedSeats = [];
     let isEditingSnacks = false;
+    let onlyPendingSnacks = false;
     let currentConfig = {
       eventDate: "Sábado 5 de Diciembre",
       yapeName: "CineBosco Oficial",
@@ -308,11 +328,31 @@
       ]
     };
 
+    function getShowLabel(showId) {
+      const sh = currentConfig.shows?.[showId];
+      if (!sh) return showId === 'show1' ? 'Función 1' : 'Función 2';
+      return sh.tag || sh.title || (showId === 'show1' ? 'Función 1' : 'Función 2');
+    }
+
+    function updateShowLabels() {
+      const s1Tag = currentConfig.shows?.show1?.tag || 'Función 1';
+      const s2Tag = currentConfig.shows?.show2?.tag || 'Función 2';
+      document.getElementById('kpi-s1-label').textContent = `Butacas • ${s1Tag}`;
+      document.getElementById('kpi-s2-label').textContent = `Butacas • ${s2Tag}`;
+      document.getElementById('kpi-snacks-s1-name').textContent = `${s1Tag}:`;
+      document.getElementById('kpi-snacks-s2-name').textContent = `${s2Tag}:`;
+      document.getElementById('opt-filter-show1').textContent = `1️⃣ ${s1Tag}`;
+      document.getElementById('opt-filter-show2').textContent = `2️⃣ ${s2Tag}`;
+    }
+
     onValue(ref(db, 'config'), (snap) => {
       if (snap.val()) {
         currentConfig = { ...currentConfig, ...snap.val() };
         if (currentConfig.adminPass) adminPassword = currentConfig.adminPass;
       }
+      updateShowLabels();
+      updateKPIs();
+      renderOrders();
       if (!isEditingSnacks) fillConfigForm();
     });
 
@@ -350,29 +390,44 @@
       });
     };
 
+    window.togglePendingSnacksFilter = () => {
+      onlyPendingSnacks = !onlyPendingSnacks;
+      const btn = document.getElementById('btn-filter-pending-snacks');
+      if (onlyPendingSnacks) {
+        btn.className = "px-3.5 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-xs transition";
+      } else {
+        btn.className = "px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400/50 text-slate-300 font-bold text-xs transition";
+      }
+      renderOrders();
+    };
+
     function updateKPIs() {
       let confirmedTotal = 0;
       let pendingCount = 0;
-      let snacksTotal = 0;
-      let snacksDeliveredCount = 0;
+      const stats = {
+        show1: { total: 0, delivered: 0 },
+        show2: { total: 0, delivered: 0 }
+      };
 
       Object.values(ordersData).forEach(o => {
         if (o.status === 'approved') confirmedTotal += Number(o.total || 0);
         if (o.status === 'pending') pendingCount++;
         if (o.snacks && o.snacks !== 'Ninguno') {
-          snacksTotal++;
-          if (o.snacksDelivered) snacksDeliveredCount++;
+          const sid = o.showId === 'show2' ? 'show2' : 'show1';
+          stats[sid].total++;
+          if (o.snacksDelivered) stats[sid].delivered++;
         }
       });
 
-      const snacksPendingCount = Math.max(snacksTotal - snacksDeliveredCount, 0);
+      const s1Pend = Math.max(stats.show1.total - stats.show1.delivered, 0);
+      const s2Pend = Math.max(stats.show2.total - stats.show2.delivered, 0);
 
       document.getElementById('kpi-total').textContent = `S/ ${confirmedTotal.toFixed(2)}`;
       document.getElementById('kpi-pending').textContent = pendingCount;
       document.getElementById('kpi-show1').textContent = `${Object.keys(occupiedData.show1).length} / 160`;
       document.getElementById('kpi-show2').textContent = `${Object.keys(occupiedData.show2).length} / 160`;
-      document.getElementById('kpi-snacks').textContent = `${snacksDeliveredCount} / ${snacksTotal}`;
-      document.getElementById('kpi-snacks-pending').textContent = `${snacksPendingCount} pendiente${snacksPendingCount === 1 ? '' : 's'}`;
+      document.getElementById('kpi-snacks-s1').innerHTML = `${stats.show1.delivered}/${stats.show1.total} <span class="text-amber-300 font-semibold">(${s1Pend} pend.)</span>`;
+      document.getElementById('kpi-snacks-s2').innerHTML = `${stats.show2.delivered}/${stats.show2.total} <span class="text-amber-300 font-semibold">(${s2Pend} pend.)</span>`;
     }
 
     function buildWhatsAppTicketUrl(o) {
@@ -396,28 +451,39 @@
 
     window.renderOrders = () => {
       const q = document.getElementById('search-order').value.toLowerCase();
+      const showFilter = document.getElementById('filter-show').value;
       const list = document.getElementById('orders-list');
       list.innerHTML = '';
 
       const entries = Object.entries(ordersData).reverse();
       entries.forEach(([key, o]) => {
-        const text = `${o.code} ${o.buyerName} ${(o.seats || []).join(' ')} ${o.yapeOpCode}`.toLowerCase();
+        const sid = o.showId === 'show2' ? 'show2' : 'show1';
+        if (showFilter !== 'all' && sid !== showFilter) return;
+
+        const hasSnacks = o.snacks && o.snacks !== 'Ninguno';
+        const snacksDelivered = Boolean(o.snacksDelivered);
+        if (onlyPendingSnacks && (!hasSnacks || snacksDelivered)) return;
+
+        const text = `${o.code} ${o.buyerName} ${(o.seats || []).join(' ')} ${o.yapeOpCode} ${o.showTag}`.toLowerCase();
         if (q && !text.includes(q)) return;
 
         const isPending = o.status === 'pending';
-        const hasSnacks = o.snacks && o.snacks !== 'Ninguno';
-        const snacksDelivered = Boolean(o.snacksDelivered);
         const waUrl = buildWhatsAppTicketUrl(o);
         const card = document.createElement('div');
         card.className = `bg-slate-900 border ${isPending ? 'border-amber-500/50' : 'border-slate-800'} p-4 rounded-2xl space-y-3`;
         card.innerHTML = `
-          <div class="flex items-start justify-between">
+          <div class="flex items-start justify-between gap-2">
             <div>
-              <span class="font-mono font-extrabold text-sky-400 text-sm">${o.code}</span>
-              <h3 class="font-bold text-white text-base">${o.buyerName} <span class="text-xs font-normal text-slate-400">(${o.buyerPhone || 'Taquilla'})</span></h3>
-              <p class="text-xs text-slate-400">${o.showTag} • ${o.movieTitle}</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-mono font-extrabold text-sky-400 text-sm">${o.code}</span>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold ${sid === 'show1' ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'}">
+                  ${o.showTag || getShowLabel(sid)}
+                </span>
+              </div>
+              <h3 class="font-bold text-white text-base mt-1">${o.buyerName} <span class="text-xs font-normal text-slate-400">(${o.buyerPhone || 'Taquilla'})</span></h3>
+              <p class="text-xs text-slate-400">${o.movieTitle}</p>
             </div>
-            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${isPending ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${isPending ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">
               ${isPending ? '⏳ Por Validar' : '✓ Aprobado'}
             </span>
           </div>
@@ -731,6 +797,9 @@
       currentConfig.snacks = collectSnacksFromDOM();
       await set(ref(db, 'config'), currentConfig);
       isEditingSnacks = false;
+      updateShowLabels();
+      updateKPIs();
+      renderOrders();
       showBoscoAlert("¡Configuración guardada! La web pública ya muestra los cambios.");
     };
 
