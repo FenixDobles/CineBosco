@@ -274,7 +274,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Estado por defecto si aún no se configura el Admin
     let appConfig = {
       eventDate: "Sábado 5 de Diciembre",
       yapeName: "CineBosco Oficial",
@@ -313,29 +312,26 @@
     let selectedSnacks = {};
     let receiptBase64 = "";
 
-    // Escuchar configuración desde Firebase
     onValue(ref(db, 'config'), (snapshot) => {
       const data = snapshot.val();
       if (data) {
         appConfig = { ...appConfig, ...data };
         if (data.shows) appConfig.shows = { ...appConfig.shows, ...data.shows };
-        if (data.snacks) appConfig.snacks = data.snacks;
+        if (Array.isArray(data.snacks)) appConfig.snacks = data.snacks;
       }
       document.getElementById('db-status').textContent = "● En línea";
       document.getElementById('db-status').className = "px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium";
-      document.getElementById('header-date').textContent = appConfig.eventDate;
+      document.getElementById('header-date').textContent = appConfig.eventDate || "Sábado 5 de Diciembre";
       renderMovies();
       renderSnacks();
       updateYapeInfo();
     });
 
-    // Escuchar butacas ocupadas en tiempo real
     onValue(ref(db, 'occupiedSeats'), (snapshot) => {
       const data = snapshot.val() || {};
       occupiedSeats.show1 = data.show1 || {};
       occupiedSeats.show2 = data.show2 || {};
-      
-      // Si alguien ocupó una butaca que el usuario tenía seleccionada, quitarla
+
       if (selectedShowId) {
         const occ = occupiedSeats[selectedShowId] || {};
         selectedSeats = selectedSeats.filter(s => !occ[s]);
@@ -348,27 +344,28 @@
     function renderMovies() {
       const container = document.getElementById('movies-container');
       container.innerHTML = '';
-      Object.values(appConfig.shows).forEach(show => {
+      Object.values(appConfig.shows || {}).forEach(show => {
+        if (!show || !show.id) return;
         const soldCount = Object.keys(occupiedSeats[show.id] || {}).length;
         const available = 160 - soldCount;
         const card = document.createElement('div');
         card.className = "bg-slate-900 border border-slate-800 hover:border-sky-500/60 rounded-2xl overflow-hidden flex flex-col transition shadow-lg";
         card.innerHTML = `
           <div class="h-44 bg-slate-800 relative overflow-hidden">
-            <img src="${show.poster}" alt="${show.title}" class="w-full h-full object-cover opacity-85" onerror="this.src='https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=600&q=80'" />
+            <img src="${show.poster || ''}" alt="${show.title || ''}" class="w-full h-full object-cover opacity-85" onerror="this.src='https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=600&q=80'" />
             <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent"></div>
-            <span class="absolute top-3 left-3 bg-sky-500 text-slate-950 text-[11px] font-extrabold px-2.5 py-1 rounded-lg shadow">${show.tag}</span>
+            <span class="absolute top-3 left-3 bg-sky-500 text-slate-950 text-[11px] font-extrabold px-2.5 py-1 rounded-lg shadow">${show.tag || 'FUNCIÓN'}</span>
             <span class="absolute bottom-3 right-3 bg-slate-950/85 border border-slate-700 text-xs font-bold px-2.5 py-1 rounded-lg text-emerald-400">${available} libres</span>
           </div>
           <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
             <div>
-              <h3 class="text-xl font-extrabold text-white">${show.title}</h3>
-              <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">${show.desc}</p>
+              <h3 class="text-xl font-extrabold text-white">${show.title || 'Película'}</h3>
+              <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">${show.desc || ''}</p>
             </div>
             <div class="flex items-center justify-between pt-3 border-t border-slate-800">
               <div>
                 <span class="text-[11px] text-slate-400 block">Entrada General</span>
-                <span class="text-lg font-extrabold text-sky-400">S/ ${Number(show.price).toFixed(2)}</span>
+                <span class="text-lg font-extrabold text-sky-400">S/ ${Number(show.price || 0).toFixed(2)}</span>
               </div>
               <button onclick="selectShow('${show.id}')" class="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs transition shadow-md">
                 Elegir Butacas →
@@ -383,9 +380,9 @@
     window.selectShow = (showId) => {
       selectedShowId = showId;
       selectedSeats = [];
-      const show = appConfig.shows[showId];
-      document.getElementById('selected-show-badge').textContent = show.tag;
-      document.getElementById('selected-movie-title').textContent = `${show.title} (S/ ${Number(show.price).toFixed(2)} c/u)`;
+      const show = appConfig.shows[showId] || {};
+      document.getElementById('selected-show-badge').textContent = show.tag || 'FUNCIÓN';
+      document.getElementById('selected-movie-title').textContent = `${show.title || 'Película'} (S/ ${Number(show.price || 0).toFixed(2)} c/u)`;
       renderSeats();
       goToStep(2);
     };
@@ -473,7 +470,7 @@
           <div>
             <h4 class="font-bold text-sm text-white">${sn.name}</h4>
             <p class="text-xs text-slate-400 mt-0.5">${sn.desc || ''}</p>
-            <p class="text-sm font-extrabold text-amber-400 mt-1.5">S/ ${Number(sn.price).toFixed(2)}</p>
+            <p class="text-sm font-extrabold text-amber-400 mt-1.5">S/ ${Number(sn.price || 0).toFixed(2)}</p>
           </div>
           <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl p-1">
             <button onclick="changeSnack('${sn.id}', -1)" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold">-</button>
@@ -495,10 +492,11 @@
 
     function calculateTotal() {
       if (!selectedShowId) return 0;
-      const ticketPrice = Number(appConfig.shows[selectedShowId].price);
+      const show = appConfig.shows[selectedShowId] || {};
+      const ticketPrice = Number(show.price || 0);
       let total = selectedSeats.length * ticketPrice;
       (appConfig.snacks || []).forEach(sn => {
-        if (selectedSnacks[sn.id]) total += selectedSnacks[sn.id] * Number(sn.price);
+        if (selectedSnacks[sn.id]) total += selectedSnacks[sn.id] * Number(sn.price || 0);
       });
       return total;
     }
@@ -559,11 +557,12 @@
     }
 
     function renderCheckout() {
-      const show = appConfig.shows[selectedShowId];
-      const ticketSubtotal = selectedSeats.length * Number(show.price);
+      const show = appConfig.shows[selectedShowId] || {};
+      const price = Number(show.price || 0);
+      const ticketSubtotal = selectedSeats.length * price;
       let html = `
         <div class="flex justify-between">
-          <span><strong>${show.title}</strong> (${selectedSeats.length}x S/ ${Number(show.price).toFixed(2)})</span>
+          <span><strong>${show.title || 'Película'}</strong> (${selectedSeats.length}x S/ ${price.toFixed(2)})</span>
           <span class="font-bold text-white">S/ ${ticketSubtotal.toFixed(2)}</span>
         </div>
         <div class="text-xs text-sky-400">Butacas: ${selectedSeats.sort().join(', ')}</div>
@@ -574,7 +573,7 @@
           html += `
             <div class="flex justify-between text-xs pt-1">
               <span>${qty}x ${sn.name}</span>
-              <span class="font-semibold">S/ ${(qty * Number(sn.price)).toFixed(2)}</span>
+              <span class="font-semibold">S/ ${(qty * Number(sn.price || 0)).toFixed(2)}</span>
             </div>
           `;
         }
@@ -583,7 +582,6 @@
       document.getElementById('checkout-total').textContent = `S/ ${calculateTotal().toFixed(2)}`;
     }
 
-    // Comprimir imagen del comprobante para guardar rápido en Firebase
     window.handleReceiptUpload = (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -593,8 +591,8 @@
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const maxW = 450;
-          const scale = maxW / img.width;
-          canvas.width = maxW;
+          const scale = img.width > maxW ? (maxW / img.width) : 1;
+          canvas.width = img.width * scale;
           canvas.height = img.height * scale;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -605,6 +603,33 @@
       };
       reader.readAsDataURL(file);
     };
+
+    function renderTicketQr(qrContainer, orderCode) {
+      qrContainer.innerHTML = '';
+      try {
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(qrContainer, {
+            text: orderCode,
+            width: 150,
+            height: 150,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+          return;
+        }
+      } catch (qrErr) {
+        console.warn("QRCode library fallback:", qrErr);
+      }
+
+      // Respaldo visual si la librería no cargó
+      qrContainer.innerHTML = `
+        <div class="text-center space-y-2">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(orderCode)}" alt="QR ${orderCode}" class="w-36 h-36 mx-auto" />
+          <p class="text-[11px] font-mono font-bold text-slate-800">${orderCode}</p>
+        </div>
+      `;
+    }
 
     window.submitOrder = async () => {
       const name = document.getElementById('buyer-name').value.trim();
@@ -619,54 +644,59 @@
         alert("Por favor ingresa el número de operación del Yape.");
         return;
       }
+      if (!selectedShowId || selectedSeats.length === 0) {
+        alert("Selecciona una función y al menos una butaca.");
+        return;
+      }
 
       const btn = document.getElementById('btn-submit-order');
       btn.disabled = true;
       btn.textContent = "Registrando reserva...";
 
-      // Verificar disponibilidad final
-      const occ = occupiedSeats[selectedShowId] || {};
-      const conflict = selectedSeats.find(s => occ[s]);
-      if (conflict) {
-        alert(`Lo sentimos, la butaca ${conflict} acaba de ser reservada por otra persona. Elige otra por favor.`);
-        btn.disabled = false;
-        btn.textContent = "Confirmar Reserva y Generar Ticket";
-        goToStep(2);
-        return;
-      }
-
-      const orderCode = `CB-${Math.floor(1000 + Math.random() * 9000)}`;
-      const show = appConfig.shows[selectedShowId];
-      const snacksList = [];
-      (appConfig.snacks || []).forEach(sn => {
-        if (selectedSnacks[sn.id]) snacksList.push(`${selectedSnacks[sn.id]}x ${sn.name}`);
-      });
-
-      const orderData = {
-        code: orderCode,
-        showId: selectedShowId,
-        showTag: show.tag,
-        movieTitle: show.title,
-        buyerName: name,
-        buyerPhone: phone,
-        seats: selectedSeats.sort(),
-        snacks: snacksList.join(', ') || 'Ninguno',
-        total: calculateTotal(),
-        paymentMethod: 'Yape',
-        yapeOpCode: opCode,
-        receiptBase64: receiptBase64,
-        status: 'pending', // pending | approved
-        checkedIn: false,
-        createdAt: new Date().toISOString()
-      };
-
       try {
+        const occ = occupiedSeats[selectedShowId] || {};
+        const conflict = selectedSeats.find(s => occ[s]);
+        if (conflict) {
+          alert(`Lo sentimos, la butaca ${conflict} acaba de ser reservada por otra persona. Elige otra por favor.`);
+          btn.disabled = false;
+          btn.textContent = "Confirmar Reserva y Generar Ticket";
+          goToStep(2);
+          return;
+        }
+
+        const orderCode = `CB-${Math.floor(1000 + Math.random() * 9000)}`;
+        const show = appConfig.shows[selectedShowId] || {};
+        const showTag = String(show.tag || "FUNCIÓN");
+        const movieTitle = String(show.title || "Película");
+        const sortedSeats = [...selectedSeats].sort();
+        const snacksList = [];
+        (appConfig.snacks || []).forEach(sn => {
+          if (selectedSnacks[sn.id]) snacksList.push(`${selectedSnacks[sn.id]}x ${sn.name}`);
+        });
+
+        const orderData = {
+          code: orderCode,
+          showId: String(selectedShowId),
+          showTag: showTag,
+          movieTitle: movieTitle,
+          buyerName: name,
+          buyerPhone: phone,
+          seats: sortedSeats,
+          snacks: snacksList.join(', ') || 'Ninguno',
+          total: Number(calculateTotal() || 0),
+          paymentMethod: 'Yape',
+          yapeOpCode: opCode,
+          receiptBase64: receiptBase64 || "",
+          status: 'pending',
+          checkedIn: false,
+          createdAt: new Date().toISOString()
+        };
+
         const newOrderRef = push(ref(db, 'orders'));
         await set(newOrderRef, orderData);
 
-        // Bloquear butacas en tiempo real
         const seatUpdates = {};
-        selectedSeats.forEach(s => {
+        sortedSeats.forEach(s => {
           seatUpdates[`occupiedSeats/${selectedShowId}/${s}`] = {
             orderId: newOrderRef.key,
             code: orderCode,
@@ -675,33 +705,33 @@
         });
         await update(ref(db), seatUpdates);
 
-        // Mostrar Ticket
         document.getElementById('tk-code').textContent = orderCode;
         document.getElementById('tk-name').textContent = name;
-        document.getElementById('tk-show').textContent = show.tag;
-        document.getElementById('tk-movie').textContent = show.title;
-        document.getElementById('tk-seats').textContent = selectedSeats.sort().join(', ');
+        document.getElementById('tk-show').textContent = showTag;
+        document.getElementById('tk-movie').textContent = movieTitle;
+        document.getElementById('tk-seats').textContent = sortedSeats.join(', ');
         document.getElementById('tk-snacks').textContent = snacksList.join(', ') || 'Ninguno';
 
         const qrContainer = document.getElementById('ticket-qrcode');
-        qrContainer.innerHTML = '';
-        new QRCode(qrContainer, { text: orderCode, width: 150, height: 150 });
+        renderTicketQr(qrContainer, orderCode);
 
         const waMsg = encodeURIComponent(
           `🎬 *TICKET CINEBOSCO*\n` +
           `Código: *${orderCode}*\n` +
           `Titular: ${name}\n` +
-          `Función: ${show.tag} (${show.title})\n` +
-          `Butacas: *${selectedSeats.sort().join(', ')}*\n` +
+          `Función: ${showTag} (${movieTitle})\n` +
+          `Butacas: *${sortedSeats.join(', ')}*\n` +
           `Dulcería: ${snacksList.join(', ') || 'Ninguno'}\n` +
-          `Total Yape: S/ ${calculateTotal().toFixed(2)} (Op: ${opCode})`
+          `Total Yape: S/ ${Number(orderData.total).toFixed(2)} (Op: ${opCode})`
         );
         document.getElementById('btn-whatsapp-share').href = `https://wa.me/51${phone.replace(/\D/g, '')}?text=${waMsg}`;
 
+        btn.disabled = false;
+        btn.textContent = "Confirmar Reserva y Generar Ticket";
         goToStep(5);
       } catch (err) {
-        console.error(err);
-        alert("Hubo un error al conectar con la base de datos. Verifica que Realtime Database esté en modo prueba.");
+        console.error("Error al registrar reserva:", err);
+        alert("Ocurrió un error al registrar la reserva (" + (err.message || "verifica tu conexión o reglas de Firebase") + ").");
         btn.disabled = false;
         btn.textContent = "Confirmar Reserva y Generar Ticket";
       }
