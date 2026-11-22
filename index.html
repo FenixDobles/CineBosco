@@ -75,9 +75,7 @@
         <p class="text-sm text-slate-400 mt-1">Selecciona la película que deseas ver para escoger tus asientos en sala.</p>
       </div>
 
-      <div class="grid md:grid-cols-2 gap-5" id="movies-container">
-        <!-- Renderizado dinámico -->
-      </div>
+      <div class="grid md:grid-cols-2 gap-5" id="movies-container"></div>
     </section>
 
     <!-- PASO 2: MAPA DE BUTACAS -->
@@ -100,7 +98,6 @@
           <div class="screen-arc w-4/5 mx-auto mb-1"></div>
           <p class="text-center text-[11px] font-bold tracking-[0.25em] text-sky-400/80 uppercase mb-6">PANTALLA</p>
 
-          <!-- Números de Columna -->
           <div class="flex items-center justify-center gap-1 mb-2 text-[10px] font-bold text-slate-400">
             <span class="w-5"></span>
             <div class="grid grid-cols-5 gap-1 text-center w-[156px]">
@@ -113,7 +110,6 @@
             <span class="w-5"></span>
           </div>
 
-          <!-- Filas A - P -->
           <div id="seats-grid" class="space-y-1.5"></div>
         </div>
       </div>
@@ -129,15 +125,12 @@
         <button onclick="goToStep(4)" class="text-xs font-semibold text-sky-400 hover:underline">Omitir paso →</button>
       </div>
 
-      <div class="grid sm:grid-cols-2 gap-4" id="snacks-container">
-        <!-- Renderizado dinámico -->
-      </div>
+      <div class="grid sm:grid-cols-2 gap-4" id="snacks-container"></div>
     </section>
 
     <!-- PASO 4: CHECKOUT Y PAGO YAPE -->
     <section id="step-4" class="hidden space-y-5">
       <div class="grid md:grid-cols-5 gap-6">
-        <!-- Formulario y Resumen -->
         <div class="md:col-span-3 space-y-4">
           <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
             <h2 class="text-lg font-bold text-white">1. Tus Datos para el Ticket</h2>
@@ -161,7 +154,6 @@
           </div>
         </div>
 
-        <!-- Módulo Yape -->
         <div class="md:col-span-2">
           <div class="bg-gradient-to-b from-[#742284] to-[#4c1458] p-5 rounded-2xl text-white shadow-xl space-y-4 border border-purple-400/20">
             <div class="flex items-center justify-between">
@@ -210,8 +202,9 @@
         </div>
 
         <div class="p-6 space-y-5 relative">
-          <div class="flex justify-center bg-white p-4 rounded-2xl w-fit mx-auto shadow-inner">
+          <div class="flex flex-col items-center justify-center bg-white p-4 rounded-2xl w-fit mx-auto shadow-inner">
             <div id="ticket-qrcode"></div>
+            <img id="ticket-qr-fallback-img" src="" alt="Código QR" class="w-36 h-36 hidden" />
           </div>
 
           <div class="text-center">
@@ -332,7 +325,8 @@
       occupiedSeats.show1 = data.show1 || {};
       occupiedSeats.show2 = data.show2 || {};
 
-      if (selectedShowId) {
+      // Solo quitar butacas ocupadas si aún no estamos en el paso 4 o 5
+      if (selectedShowId && currentStep < 4) {
         const occ = occupiedSeats[selectedShowId] || {};
         selectedSeats = selectedSeats.filter(s => !occ[s]);
         renderSeats();
@@ -519,8 +513,14 @@
     }
 
     window.goToStep = (step) => {
-      if (step > 1 && !selectedShowId) return;
-      if (step > 2 && selectedSeats.length === 0) return;
+      if (step > 1 && !selectedShowId) {
+        alert("Primero elige una función en el Paso 1.");
+        return;
+      }
+      if (step > 2 && selectedSeats.length === 0) {
+        alert("Primero selecciona al menos una butaca en el Paso 2.");
+        return;
+      }
       currentStep = step;
       [1, 2, 3, 4, 5].forEach(s => {
         document.getElementById(`step-${s}`).classList.toggle('hidden', s !== step);
@@ -604,8 +604,14 @@
       reader.readAsDataURL(file);
     };
 
-    function renderTicketQr(qrContainer, orderCode) {
+    function renderTicketQr(orderCode) {
+      const qrContainer = document.getElementById('ticket-qrcode');
+      const fallbackImg = document.getElementById('ticket-qr-fallback-img');
       qrContainer.innerHTML = '';
+      fallbackImg.classList.add('hidden');
+      fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(orderCode)}`;
+
+      let drewCanvas = false;
       try {
         if (typeof QRCode !== 'undefined') {
           new QRCode(qrContainer, {
@@ -616,19 +622,22 @@
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M
           });
-          return;
+          setTimeout(() => {
+            const hasQr = qrContainer.querySelector('canvas') || qrContainer.querySelector('img');
+            if (!hasQr) {
+              qrContainer.innerHTML = '';
+              fallbackImg.classList.remove('hidden');
+            }
+          }, 150);
+          drewCanvas = true;
         }
-      } catch (qrErr) {
-        console.warn("QRCode library fallback:", qrErr);
+      } catch (e) {
+        console.warn("QRCode fallback:", e);
       }
 
-      // Respaldo visual si la librería no cargó
-      qrContainer.innerHTML = `
-        <div class="text-center space-y-2">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(orderCode)}" alt="QR ${orderCode}" class="w-36 h-36 mx-auto" />
-          <p class="text-[11px] font-mono font-bold text-slate-800">${orderCode}</p>
-        </div>
-      `;
+      if (!drewCanvas) {
+        fallbackImg.classList.remove('hidden');
+      }
     }
 
     window.submitOrder = async () => {
@@ -644,8 +653,11 @@
         alert("Por favor ingresa el número de operación del Yape.");
         return;
       }
-      if (!selectedShowId || selectedSeats.length === 0) {
-        alert("Selecciona una función y al menos una butaca.");
+      if (!selectedShowId) {
+        selectedShowId = "show1";
+      }
+      if (!selectedSeats || selectedSeats.length === 0) {
+        alert("No hay butacas seleccionadas. Vuelve al Paso 2 y elige al menos una butaca libre.");
         return;
       }
 
@@ -654,16 +666,6 @@
       btn.textContent = "Registrando reserva...";
 
       try {
-        const occ = occupiedSeats[selectedShowId] || {};
-        const conflict = selectedSeats.find(s => occ[s]);
-        if (conflict) {
-          alert(`Lo sentimos, la butaca ${conflict} acaba de ser reservada por otra persona. Elige otra por favor.`);
-          btn.disabled = false;
-          btn.textContent = "Confirmar Reserva y Generar Ticket";
-          goToStep(2);
-          return;
-        }
-
         const orderCode = `CB-${Math.floor(1000 + Math.random() * 9000)}`;
         const show = appConfig.shows[selectedShowId] || {};
         const showTag = String(show.tag || "FUNCIÓN");
@@ -673,6 +675,7 @@
         (appConfig.snacks || []).forEach(sn => {
           if (selectedSnacks[sn.id]) snacksList.push(`${selectedSnacks[sn.id]}x ${sn.name}`);
         });
+        const totalAmount = Number(calculateTotal() || 0);
 
         const orderData = {
           code: orderCode,
@@ -683,7 +686,7 @@
           buyerPhone: phone,
           seats: sortedSeats,
           snacks: snacksList.join(', ') || 'Ninguno',
-          total: Number(calculateTotal() || 0),
+          total: totalAmount,
           paymentMethod: 'Yape',
           yapeOpCode: opCode,
           receiptBase64: receiptBase64 || "",
@@ -712,8 +715,7 @@
         document.getElementById('tk-seats').textContent = sortedSeats.join(', ');
         document.getElementById('tk-snacks').textContent = snacksList.join(', ') || 'Ninguno';
 
-        const qrContainer = document.getElementById('ticket-qrcode');
-        renderTicketQr(qrContainer, orderCode);
+        renderTicketQr(orderCode);
 
         const waMsg = encodeURIComponent(
           `🎬 *TICKET CINEBOSCO*\n` +
@@ -722,9 +724,13 @@
           `Función: ${showTag} (${movieTitle})\n` +
           `Butacas: *${sortedSeats.join(', ')}*\n` +
           `Dulcería: ${snacksList.join(', ') || 'Ninguno'}\n` +
-          `Total Yape: S/ ${Number(orderData.total).toFixed(2)} (Op: ${opCode})`
+          `Total Yape: S/ ${totalAmount.toFixed(2)} (Op: ${opCode})`
         );
         document.getElementById('btn-whatsapp-share').href = `https://wa.me/51${phone.replace(/\D/g, '')}?text=${waMsg}`;
+
+        selectedSeats = [];
+        selectedSnacks = {};
+        receiptBase64 = "";
 
         btn.disabled = false;
         btn.textContent = "Confirmar Reserva y Generar Ticket";
