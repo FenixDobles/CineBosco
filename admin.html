@@ -45,7 +45,7 @@
     </header>
 
     <!-- KPIs Rápidos -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
         <p class="text-xs text-slate-400">Recaudado Confirmado</p>
         <p class="text-2xl font-extrabold text-emerald-400 mt-1" id="kpi-total">S/ 0.00</p>
@@ -61,6 +61,11 @@
       <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
         <p class="text-xs text-slate-400">Butacas 7:00 PM</p>
         <p class="text-2xl font-extrabold text-indigo-400 mt-1" id="kpi-show2">0 / 160</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl col-span-2 lg:col-span-1">
+        <p class="text-xs text-slate-400">🍿 Dulcería Entregada</p>
+        <p class="text-2xl font-extrabold text-amber-300 mt-1" id="kpi-snacks">0 / 0</p>
+        <p class="text-[11px] text-slate-400 mt-0.5" id="kpi-snacks-pending">0 pendientes</p>
       </div>
     </div>
 
@@ -348,14 +353,26 @@
     function updateKPIs() {
       let confirmedTotal = 0;
       let pendingCount = 0;
+      let snacksTotal = 0;
+      let snacksDeliveredCount = 0;
+
       Object.values(ordersData).forEach(o => {
         if (o.status === 'approved') confirmedTotal += Number(o.total || 0);
         if (o.status === 'pending') pendingCount++;
+        if (o.snacks && o.snacks !== 'Ninguno') {
+          snacksTotal++;
+          if (o.snacksDelivered) snacksDeliveredCount++;
+        }
       });
+
+      const snacksPendingCount = Math.max(snacksTotal - snacksDeliveredCount, 0);
+
       document.getElementById('kpi-total').textContent = `S/ ${confirmedTotal.toFixed(2)}`;
       document.getElementById('kpi-pending').textContent = pendingCount;
       document.getElementById('kpi-show1').textContent = `${Object.keys(occupiedData.show1).length} / 160`;
       document.getElementById('kpi-show2').textContent = `${Object.keys(occupiedData.show2).length} / 160`;
+      document.getElementById('kpi-snacks').textContent = `${snacksDeliveredCount} / ${snacksTotal}`;
+      document.getElementById('kpi-snacks-pending').textContent = `${snacksPendingCount} pendiente${snacksPendingCount === 1 ? '' : 's'}`;
     }
 
     function buildWhatsAppTicketUrl(o) {
@@ -388,6 +405,8 @@
         if (q && !text.includes(q)) return;
 
         const isPending = o.status === 'pending';
+        const hasSnacks = o.snacks && o.snacks !== 'Ninguno';
+        const snacksDelivered = Boolean(o.snacksDelivered);
         const waUrl = buildWhatsAppTicketUrl(o);
         const card = document.createElement('div');
         card.className = `bg-slate-900 border ${isPending ? 'border-amber-500/50' : 'border-slate-800'} p-4 rounded-2xl space-y-3`;
@@ -403,9 +422,15 @@
             </span>
           </div>
 
-          <div class="bg-slate-950 p-3 rounded-xl text-xs space-y-1 border border-slate-800/80">
+          <div class="bg-slate-950 p-3 rounded-xl text-xs space-y-1.5 border border-slate-800/80">
             <div class="flex justify-between"><span class="text-slate-400">Butacas:</span><span class="font-bold text-amber-400">${(o.seats || []).join(', ')}</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Dulcería:</span><span class="text-slate-200">${o.snacks}</span></div>
+            <div class="flex justify-between items-center gap-2">
+              <span class="text-slate-400">Dulcería:</span>
+              <div class="text-right">
+                <span class="text-slate-200">${o.snacks}</span>
+                ${hasSnacks ? `<span class="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${snacksDelivered ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${snacksDelivered ? '✓ Entregada' : 'Pendiente'}</span>` : ''}
+              </div>
+            </div>
             <div class="flex justify-between"><span class="text-slate-400">Pago (${o.paymentMethod}):</span><span class="font-extrabold text-emerald-400">S/ ${Number(o.total).toFixed(2)} ${o.yapeOpCode ? `(Op: ${o.yapeOpCode})` : ''}</span></div>
           </div>
 
@@ -419,6 +444,11 @@
               <button onclick="toggleCheckIn('${key}', ${!o.checkedIn})" class="px-3 py-1.5 rounded-lg ${o.checkedIn ? 'bg-slate-800 text-slate-400' : 'bg-sky-500 text-slate-950'} text-xs font-extrabold">
                 ${o.checkedIn ? '✓ Ya ingresó a sala' : '🎟️ Marcar Ingreso en Puerta'}
               </button>
+              ${hasSnacks ? `
+                <button onclick="toggleSnacksDelivered('${key}', ${!snacksDelivered})" class="px-3 py-1.5 rounded-lg ${snacksDelivered ? 'bg-slate-800 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'} text-xs font-extrabold">
+                  ${snacksDelivered ? '✓ Dulcería entregada' : '🍿 Entregar Dulcería'}
+                </button>
+              ` : ''}
               <button onclick="deleteOrderAndRelease('${key}')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/40 text-rose-300 text-xs font-bold ml-auto">
                 🗑️ Eliminar y Liberar
               </button>
@@ -463,6 +493,10 @@
 
     window.toggleCheckIn = async (key, state) => {
       await update(ref(db, `orders/${key}`), { checkedIn: state });
+    };
+
+    window.toggleSnacksDelivered = async (key, state) => {
+      await update(ref(db, `orders/${key}`), { snacksDelivered: state });
     };
 
     // POS Taquilla
@@ -530,6 +564,7 @@
         code, showId, showTag: show.tag, movieTitle: show.title,
         buyerName: name, buyerPhone: '', seats: posSelectedSeats.sort(),
         snacks: extra > 0 ? `Extra S/ ${extra.toFixed(2)}` : 'Ninguno',
+        snacksDelivered: false,
         total, paymentMethod: method, status: 'approved', checkedIn: true,
         createdAt: new Date().toISOString()
       });
@@ -700,9 +735,9 @@
     };
 
     window.exportCSV = () => {
-      let csv = "Codigo,Fecha,Titular,Telefono,Funcion,Pelicula,Butacas,Dulceria,Total,MetodoPago,OpYape,Estado,Ingreso\n";
+      let csv = "Codigo,Fecha,Titular,Telefono,Funcion,Pelicula,Butacas,Dulceria,Dulceria_Entregada,Total,MetodoPago,OpYape,Estado,Ingreso\n";
       Object.values(ordersData).forEach(o => {
-        csv += `"${o.code}","${o.createdAt}","${o.buyerName}","${o.buyerPhone}","${o.showTag}","${o.movieTitle}","${(o.seats||[]).join(' ')}","${o.snacks}",${o.total},"${o.paymentMethod}","${o.yapeOpCode||''}","${o.status}",${o.checkedIn ? 'SI' : 'NO'}\n`;
+        csv += `"${o.code}","${o.createdAt}","${o.buyerName}","${o.buyerPhone}","${o.showTag}","${o.movieTitle}","${(o.seats||[]).join(' ')}","${o.snacks}",${o.snacksDelivered ? 'SI' : 'NO'},${o.total},"${o.paymentMethod}","${o.yapeOpCode||''}","${o.status}",${o.checkedIn ? 'SI' : 'NO'}\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
