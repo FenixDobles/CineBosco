@@ -207,6 +207,25 @@
     </section>
   </div>
 
+  <!-- Modal Personalizado: CineBosco dice -->
+  <div id="bosco-alert-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onclick="closeBoscoAlert(false)">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+        <span class="text-xl">🎬</span>
+        <h3 class="font-extrabold text-sm text-sky-400">CineBosco dice</h3>
+      </div>
+      <p id="bosco-alert-message" class="text-sm text-slate-100 leading-relaxed whitespace-pre-line"></p>
+      <div id="bosco-alert-actions" class="flex justify-end gap-2 pt-1">
+        <button type="button" id="bosco-cancel-btn" onclick="closeBoscoAlert(false)" class="hidden px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition">
+          Cancelar
+        </button>
+        <button type="button" onclick="closeBoscoAlert(true)" class="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs transition">
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal para ver captura de Yape -->
   <div id="receipt-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
     <div class="bg-slate-900 p-4 rounded-2xl max-w-sm w-full space-y-3" onclick="event.stopPropagation()">
@@ -235,6 +254,31 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    let boscoConfirmResolver = null;
+    window.showBoscoAlert = (msg) => {
+      document.getElementById('bosco-alert-message').textContent = String(msg || '');
+      document.getElementById('bosco-cancel-btn').classList.add('hidden');
+      document.getElementById('bosco-alert-modal').classList.remove('hidden');
+    };
+
+    window.showBoscoConfirm = (msg) => {
+      document.getElementById('bosco-alert-message').textContent = String(msg || '');
+      document.getElementById('bosco-cancel-btn').classList.remove('hidden');
+      document.getElementById('bosco-alert-modal').classList.remove('hidden');
+      return new Promise((resolve) => {
+        boscoConfirmResolver = resolve;
+      });
+    };
+
+    window.closeBoscoAlert = (confirmed) => {
+      document.getElementById('bosco-alert-modal').classList.add('hidden');
+      if (boscoConfirmResolver) {
+        const resolver = boscoConfirmResolver;
+        boscoConfirmResolver = null;
+        resolver(Boolean(confirmed));
+      }
+    };
 
     let adminPassword = "bosco2026";
     let ordersData = {};
@@ -288,7 +332,7 @@
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('admin-app').classList.remove('hidden');
       } else {
-        alert("Contraseña incorrecta");
+        showBoscoAlert("Contraseña incorrecta");
       }
     };
 
@@ -395,7 +439,7 @@
       const updatedOrder = { ...ordersData[key], status: 'approved' };
       const waUrl = buildWhatsAppTicketUrl(updatedOrder);
       if (hasWhatsApp && waUrl) {
-        const openNow = confirm("¡Pago aprobado! ¿Deseas abrir WhatsApp ahora para enviarle su código QR?");
+        const openNow = await showBoscoConfirm("¡Pago aprobado! ¿Deseas abrir WhatsApp ahora para enviarle su código QR?");
         if (openNow) {
           window.open(waUrl, '_blank');
         }
@@ -408,7 +452,8 @@
       const msg = o.status === 'approved'
         ? `⚠️ Esta compra (${o.code} - ${o.buyerName}) YA ESTÁ APROBADA.\n\n¿Seguro que deseas eliminarla, restar los S/ ${Number(o.total).toFixed(2)} de caja y liberar las butacas (${(o.seats || []).join(', ')})?`
         : `¿Seguro que deseas rechazar la reserva ${o.code} y liberar sus butacas (${(o.seats || []).join(', ')})?`;
-      if (!confirm(msg)) return;
+      const ok = await showBoscoConfirm(msg);
+      if (!ok) return;
 
       const updates = {};
       (o.seats || []).forEach(s => { updates[`occupiedSeats/${o.showId}/${s}`] = null; });
@@ -471,7 +516,7 @@
     };
 
     window.createPosOrder = async () => {
-      if (posSelectedSeats.length === 0) return alert("Selecciona al menos 1 butaca.");
+      if (posSelectedSeats.length === 0) return showBoscoAlert("Selecciona al menos 1 butaca.");
       const showId = document.getElementById('pos-show').value;
       const show = currentConfig.shows[showId];
       const name = document.getElementById('pos-name').value.trim() || "Cliente Taquilla";
@@ -498,7 +543,7 @@
       posSelectedSeats = [];
       document.getElementById('pos-name').value = '';
       document.getElementById('pos-extra').value = '0';
-      alert(`Venta registrada con éxito. Código: ${code}`);
+      showBoscoAlert(`Venta registrada con éxito. Código: ${code}`);
     };
 
     // Mapa en Vivo
@@ -520,8 +565,8 @@
             ? "w-7 h-7 rounded bg-rose-600 text-[9px] font-bold text-white"
             : "w-7 h-7 rounded bg-slate-800 text-[9px] text-slate-400";
           btn.onclick = () => {
-            if (info) alert(`Butaca ${id}\nTitular: ${info.buyerName}\nCódigo: ${info.code}`);
-            else alert(`Butaca ${id}: Libre`);
+            if (info) showBoscoAlert(`Butaca ${id}\nTitular: ${info.buyerName}\nCódigo: ${info.code}`);
+            else showBoscoAlert(`Butaca ${id}: Libre`);
           };
           rowDiv.appendChild(btn);
         }
@@ -651,7 +696,7 @@
       currentConfig.snacks = collectSnacksFromDOM();
       await set(ref(db, 'config'), currentConfig);
       isEditingSnacks = false;
-      alert("¡Configuración guardada! La web pública ya muestra los cambios.");
+      showBoscoAlert("¡Configuración guardada! La web pública ya muestra los cambios.");
     };
 
     window.exportCSV = () => {

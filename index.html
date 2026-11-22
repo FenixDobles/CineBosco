@@ -235,6 +235,22 @@
 
   </main>
 
+  <!-- Modal Personalizado: CineBosco dice -->
+  <div id="bosco-alert-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-xs z-50 flex items-center justify-center p-4" onclick="closeBoscoAlert()">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+        <span class="text-xl">🎬</span>
+        <h3 class="font-extrabold text-sm text-sky-400">CineBosco dice</h3>
+      </div>
+      <p id="bosco-alert-message" class="text-sm text-slate-100 leading-relaxed"></p>
+      <div class="flex justify-end pt-1">
+        <button type="button" onclick="closeBoscoAlert()" class="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs transition">
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Barra Flotante Inferior -->
   <footer id="bottom-bar" class="hidden fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 p-3.5 z-40">
     <div class="max-w-5xl mx-auto flex items-center justify-between gap-4">
@@ -266,6 +282,15 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    window.showBoscoAlert = (msg) => {
+      document.getElementById('bosco-alert-message').textContent = String(msg || '');
+      document.getElementById('bosco-alert-modal').classList.remove('hidden');
+    };
+
+    window.closeBoscoAlert = () => {
+      document.getElementById('bosco-alert-modal').classList.add('hidden');
+    };
 
     let appConfig = {
       eventDate: "Sábado 5 de Diciembre",
@@ -441,7 +466,7 @@
           selectedSeats = selectedSeats.filter(s => s !== seatId);
         } else {
           if (selectedSeats.length >= 10) {
-            alert("Máximo 10 butacas por compra.");
+            showBoscoAlert("Máximo 10 butacas por compra.");
             return;
           }
           selectedSeats.push(seatId);
@@ -605,11 +630,11 @@
       const opCode = document.getElementById('yape-op-code').value.trim();
 
       if (!name || !phone) {
-        alert("Por favor ingresa tu nombre y número de WhatsApp.");
+        showBoscoAlert("Por favor ingresa tu nombre y número de WhatsApp.");
         return;
       }
       if (!opCode) {
-        alert("Por favor ingresa el número de operación del Yape.");
+        showBoscoAlert("Por favor ingresa el número de operación del Yape.");
         return;
       }
 
@@ -679,7 +704,7 @@
         goToStep(5);
       } catch (err) {
         console.error("Error al registrar reserva:", err);
-        alert("Ocurrió un error al registrar la reserva (" + (err.message || "verifica tu conexión o reglas de Firebase") + ").");
+        showBoscoAlert("Ocurrió un error al registrar la reserva (" + (err.message || "verifica tu conexión o reglas de Firebase") + ").");
         btn.disabled = false;
         btn.textContent = "Confirmar Reserva";
       }
