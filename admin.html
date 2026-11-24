@@ -222,21 +222,55 @@
 
       <div class="grid md:grid-cols-2 gap-5">
         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-          <h3 class="font-bold text-sky-400 text-sm">Función 1 (5:00 PM)</h3>
+          <h3 class="font-bold text-sky-400 text-sm">Función 1</h3>
           <input type="text" id="cfg-s1-tag" placeholder="Etiqueta horario" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
           <input type="text" id="cfg-s1-title" placeholder="Título película" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
           <input type="text" id="cfg-s1-desc" placeholder="Descripción corta" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
           <input type="text" id="cfg-s1-poster" placeholder="URL imagen póster" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
-          <input type="number" id="cfg-s1-price" placeholder="Precio entrada S/" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-0.5">Precio Normal (S/)</label>
+              <input type="number" id="cfg-s1-normal-price" placeholder="Ej. 7.00" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-emerald-400 mb-0.5">Precio Preventa (S/)</label>
+              <input type="number" id="cfg-s1-price" placeholder="Ej. 5.00" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] text-amber-300 mb-0.5">Fecha / Plazo de Preventa (opcional)</label>
+            <input type="text" id="cfg-s1-presale-date" placeholder="Ej. Hasta el 30 de Nov" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          </div>
+          <label class="flex items-center gap-2.5 bg-slate-900 border border-rose-500/30 rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" id="cfg-s1-sold-out" class="w-4 h-4 accent-rose-500 rounded" />
+            <span class="text-xs font-bold text-rose-300">Marcar Función 1 como AGOTADO (Out of Sale)</span>
+          </label>
         </div>
 
         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-          <h3 class="font-bold text-indigo-400 text-sm">Función 2 (7:00 PM)</h3>
+          <h3 class="font-bold text-indigo-400 text-sm">Función 2</h3>
           <input type="text" id="cfg-s2-tag" placeholder="Etiqueta horario" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
           <input type="text" id="cfg-s2-title" placeholder="Título película" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
           <input type="text" id="cfg-s2-desc" placeholder="Descripción corta" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
           <input type="text" id="cfg-s2-poster" placeholder="URL imagen póster" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
-          <input type="number" id="cfg-s2-price" placeholder="Precio entrada S/" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-0.5">Precio Normal (S/)</label>
+              <input type="number" id="cfg-s2-normal-price" placeholder="Ej. 9.00" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-emerald-400 mb-0.5">Precio Preventa (S/)</label>
+              <input type="number" id="cfg-s2-price" placeholder="Ej. 7.00" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] text-amber-300 mb-0.5">Fecha / Plazo de Preventa (opcional)</label>
+            <input type="text" id="cfg-s2-presale-date" placeholder="Ej. Hasta el 30 de Nov" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          </div>
+          <label class="flex items-center gap-2.5 bg-slate-900 border border-rose-500/30 rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" id="cfg-s2-sold-out" class="w-4 h-4 accent-rose-500 rounded" />
+            <span class="text-xs font-bold text-rose-300">Marcar Función 2 como AGOTADO (Out of Sale)</span>
+          </label>
         </div>
       </div>
 
@@ -295,7 +329,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, onValue, set, update, remove, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getDatabase, ref, onValue, set, update, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyC8xnyjHiD3r88xujIQvBCudL3879CnDtA",
@@ -353,8 +387,28 @@
       yapeQrBase64: "",
       adminPass: "bosco2026",
       shows: {
-        show1: { id: "show1", tag: "FUNCIÓN ORATORIANA • 5:00 PM", title: "Intensa-Mente 2", desc: "Función especial para niños del oratorio y familias.", price: 5.00, poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80" },
-        show2: { id: "show2", tag: "FUNCIÓN JUVENIL • 7:00 PM", title: "¿Y dónde están las rubias?", desc: "Comedia clásica para disfrutar con amigos.", price: 7.00, poster: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80" }
+        show1: {
+          id: "show1",
+          tag: "FUNCIÓN ORATORIANA • 5:00 PM",
+          title: "Moana 2",
+          desc: "Función especial para niños del oratorio y familias. Apta para todo público.",
+          normalPrice: 7.00,
+          price: 5.00,
+          presaleDate: "Hasta el 30 de Nov",
+          soldOut: false,
+          poster: "https://images.unsplash.com/photo-1518929458119-e5bf444c30f4?auto=format&fit=crop&w=600&q=80"
+        },
+        show2: {
+          id: "show2",
+          tag: "FUNCIÓN JUVENIL • 7:00 PM",
+          title: "Five Nights at Freddy's",
+          desc: "Suspenso y terror para disfrutar con amigos. Recomendada para mayores de 13 años.",
+          normalPrice: 9.00,
+          price: 7.00,
+          presaleDate: "Hasta el 30 de Nov",
+          soldOut: false,
+          poster: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80"
+        }
       },
       snacks: [
         { id: "sn1", name: "Combo Bosco (Canchita + Gaseosa)", price: 6.00, desc: "Canchita mediana salada + vaso de gaseosa helada." },
@@ -383,7 +437,14 @@
 
     onValue(ref(db, 'config'), (snap) => {
       if (snap.val()) {
-        currentConfig = { ...currentConfig, ...snap.val() };
+        currentConfig = {
+          ...currentConfig,
+          ...snap.val(),
+          shows: {
+            show1: { ...currentConfig.shows.show1, ...(snap.val().shows?.show1 || {}) },
+            show2: { ...currentConfig.shows.show2, ...(snap.val().shows?.show2 || {}) }
+          }
+        };
         if (currentConfig.adminPass) adminPassword = currentConfig.adminPass;
       }
       updateShowLabels();
@@ -593,7 +654,7 @@
         `💺 Butacas: *${(o.seats || []).join(', ')}*\n` +
         `🍿 Dulcería: ${o.snacks || 'Ninguno'}\n\n` +
         `📲 Tu código QR para ingresar en puerta:\n${qrUrl}\n\n` +
-        `No lo compartas con nadie... ¡Te esperamos!`
+        `¡Te esperamos!`
       );
       return `https://wa.me/${pePhone}?text=${msg}`;
     }
@@ -836,18 +897,24 @@
         img.classList.remove('hidden');
       }
       const s1 = currentConfig.shows.show1;
-      document.getElementById('cfg-s1-tag').value = s1.tag;
-      document.getElementById('cfg-s1-title').value = s1.title;
-      document.getElementById('cfg-s1-desc').value = s1.desc;
-      document.getElementById('cfg-s1-poster').value = s1.poster;
-      document.getElementById('cfg-s1-price').value = s1.price;
+      document.getElementById('cfg-s1-tag').value = s1.tag || '';
+      document.getElementById('cfg-s1-title').value = s1.title || '';
+      document.getElementById('cfg-s1-desc').value = s1.desc || '';
+      document.getElementById('cfg-s1-poster').value = s1.poster || '';
+      document.getElementById('cfg-s1-normal-price').value = s1.normalPrice ?? s1.price ?? 0;
+      document.getElementById('cfg-s1-price').value = s1.price ?? 0;
+      document.getElementById('cfg-s1-presale-date').value = s1.presaleDate || '';
+      document.getElementById('cfg-s1-sold-out').checked = Boolean(s1.soldOut);
 
       const s2 = currentConfig.shows.show2;
-      document.getElementById('cfg-s2-tag').value = s2.tag;
-      document.getElementById('cfg-s2-title').value = s2.title;
-      document.getElementById('cfg-s2-desc').value = s2.desc;
-      document.getElementById('cfg-s2-poster').value = s2.poster;
-      document.getElementById('cfg-s2-price').value = s2.price;
+      document.getElementById('cfg-s2-tag').value = s2.tag || '';
+      document.getElementById('cfg-s2-title').value = s2.title || '';
+      document.getElementById('cfg-s2-desc').value = s2.desc || '';
+      document.getElementById('cfg-s2-poster').value = s2.poster || '';
+      document.getElementById('cfg-s2-normal-price').value = s2.normalPrice ?? s2.price ?? 0;
+      document.getElementById('cfg-s2-price').value = s2.price ?? 0;
+      document.getElementById('cfg-s2-presale-date').value = s2.presaleDate || '';
+      document.getElementById('cfg-s2-sold-out').checked = Boolean(s2.soldOut);
 
       renderSnackRows(Array.isArray(currentConfig.snacks) ? currentConfig.snacks : []);
     }
@@ -923,6 +990,11 @@
     };
 
     window.saveConfig = async () => {
+      const s1Price = Number(document.getElementById('cfg-s1-price').value || 0);
+      const s1Normal = Number(document.getElementById('cfg-s1-normal-price').value || s1Price);
+      const s2Price = Number(document.getElementById('cfg-s2-price').value || 0);
+      const s2Normal = Number(document.getElementById('cfg-s2-normal-price').value || s2Price);
+
       currentConfig.eventDate = document.getElementById('cfg-date').value;
       currentConfig.yapeName = document.getElementById('cfg-yape-name').value;
       currentConfig.yapePhone = document.getElementById('cfg-yape-phone').value;
@@ -933,7 +1005,10 @@
         title: document.getElementById('cfg-s1-title').value,
         desc: document.getElementById('cfg-s1-desc').value,
         poster: document.getElementById('cfg-s1-poster').value,
-        price: Number(document.getElementById('cfg-s1-price').value)
+        normalPrice: s1Normal,
+        price: s1Price,
+        presaleDate: document.getElementById('cfg-s1-presale-date').value.trim(),
+        soldOut: document.getElementById('cfg-s1-sold-out').checked
       };
       currentConfig.shows.show2 = {
         id: "show2",
@@ -941,7 +1016,10 @@
         title: document.getElementById('cfg-s2-title').value,
         desc: document.getElementById('cfg-s2-desc').value,
         poster: document.getElementById('cfg-s2-poster').value,
-        price: Number(document.getElementById('cfg-s2-price').value)
+        normalPrice: s2Normal,
+        price: s2Price,
+        presaleDate: document.getElementById('cfg-s2-presale-date').value.trim(),
+        soldOut: document.getElementById('cfg-s2-sold-out').checked
       };
       currentConfig.snacks = collectSnacksFromDOM();
       await set(ref(db, 'config'), currentConfig);
