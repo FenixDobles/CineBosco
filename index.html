@@ -308,6 +308,9 @@
 
     let appConfig = structuredClone(defaultConfig);
     let occupiedSeats = { show1: {}, show2: {} };
+    let activeStep = 1;
+    let isSubmittingOrder = false;
+    let isOrderCompleted = false;
     let selectedShowId = "show1";
     let selectedSeats = [];
     let selectedSnacks = {};
@@ -358,12 +361,16 @@
         show1: data.show1 || {},
         show2: data.show2 || {}
       };
+
       const currentOcc = occupiedSeats[selectedShowId] || {};
-      const hadConflict = selectedSeats.some(s => Boolean(currentOcc[s]));
+      const canWarnSelectionConflict = !isSubmittingOrder && !isOrderCompleted && activeStep >= 2 && activeStep <= 4;
+      const hadConflict = canWarnSelectionConflict && selectedSeats.some(s => Boolean(currentOcc[s]));
+
       if (hadConflict) {
         selectedSeats = selectedSeats.filter(s => !currentOcc[s]);
         showBoscoAlert("Una o más butacas que habías elegido acaban de ser ocupadas por otra persona.");
       }
+
       renderMovies();
       renderSeats();
       updateSeatsSummary();
@@ -457,6 +464,7 @@
         showBoscoAlert("Esta función está marcada como AGOTADA (Out of Sale).");
         return;
       }
+      isOrderCompleted = false;
       selectedShowId = showId;
       selectedSeats = [];
       const unitPrice = getEffectiveTicketPrice(show);
@@ -647,6 +655,7 @@
     };
 
     window.submitOrder = async () => {
+      if (isSubmittingOrder) return;
       const show = appConfig.shows[selectedShowId] || {};
       if (show.soldOut) {
         showBoscoAlert("Esta función está marcada como AGOTADA (Out of Sale).");
@@ -668,6 +677,7 @@
       const btn = document.getElementById('btn-submit-order');
       btn.disabled = true;
       btn.textContent = "Separando butacas...";
+      isSubmittingOrder = true;
 
       const lockedSeatsInRun = [];
 
@@ -699,9 +709,10 @@
             if (Object.keys(rollback).length > 0) {
               await update(ref(db), rollback);
             }
+            isSubmittingOrder = false;
             btn.disabled = false;
             btn.textContent = "✓ Confirmar y Enviar Reserva";
-            showBoscoAlert(`La butaca ${seatId} ya figura ocupada en la sala. Elige otra butaca disponible.`);
+            showBoscoAlert(`La butaca ${seatId} ya figura como ocupada. Elige otra butaca disponible.`);
             goToStep(2);
             return;
           }
@@ -735,6 +746,13 @@
 
         await set(newOrderRef, orderPayload);
 
+        // Limpiar selección actual antes de mostrar la pantalla final
+        selectedSeats = [];
+        selectedSnacks = {};
+        receiptBase64 = "";
+        isOrderCompleted = true;
+        isSubmittingOrder = false;
+
         document.getElementById('success-name').textContent = name;
         document.getElementById('success-code').textContent = orderCode;
         document.getElementById('success-show').textContent = `${show.title} (${show.tag})`;
@@ -742,6 +760,7 @@
         document.getElementById('success-snacks').textContent = snacksText;
         document.getElementById('success-total').textContent = `S/ ${totalAmount.toFixed(2)}`;
 
+        activeStep = 0;
         ['step-1', 'step-2', 'step-3', 'step-4'].forEach(id => document.getElementById(id).classList.add('hidden'));
         document.getElementById('step-success').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -754,6 +773,7 @@
         if (Object.keys(rollback).length > 0) {
           await update(ref(db), rollback).catch(() => {});
         }
+        isSubmittingOrder = false;
         showBoscoAlert("Ocurrió un error al registrar tu reserva. Intenta nuevamente.");
         btn.disabled = false;
         btn.textContent = "✓ Confirmar y Enviar Reserva";
@@ -769,6 +789,8 @@
         showBoscoAlert("Primero selecciona al menos una butaca.");
         return;
       }
+      activeStep = stepNum;
+      document.getElementById('step-success').classList.add('hidden');
       [1, 2, 3, 4].forEach(n => {
         document.getElementById(`step-${n}`).classList.toggle('hidden', n !== stepNum);
         const ind = document.getElementById(`step-ind-${n}`);
