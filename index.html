@@ -316,6 +316,22 @@
     const rows = "ABCDEFGHIJKLMNOP".split("");
     const cols = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
+    function getEffectiveTicketPrice(show) {
+      const p = Number(show?.price);
+      if (Number.isFinite(p) && p > 0) return p;
+      const np = Number(show?.normalPrice);
+      if (Number.isFinite(np) && np > 0) return np;
+      return 0;
+    }
+
+    function mergeShowConfig(fallbackShow, remoteShow) {
+      const merged = { ...fallbackShow, ...(remoteShow || {}) };
+      if (!Number(merged.price) || Number(merged.price) <= 0) {
+        merged.price = Number(merged.normalPrice) > 0 ? Number(merged.normalPrice) : fallbackShow.price;
+      }
+      return merged;
+    }
+
     onValue(ref(db, 'config'), (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -323,8 +339,8 @@
           ...defaultConfig,
           ...data,
           shows: {
-            show1: { ...defaultConfig.shows.show1, ...(data.shows?.show1 || {}) },
-            show2: { ...defaultConfig.shows.show2, ...(data.shows?.show2 || {}) }
+            show1: mergeShowConfig(defaultConfig.shows.show1, data.shows?.show1),
+            show2: mergeShowConfig(defaultConfig.shows.show2, data.shows?.show2)
           },
           snacks: Array.isArray(data.snacks) && data.snacks.length > 0 ? data.snacks : defaultConfig.snacks
         };
@@ -369,7 +385,7 @@
     }
 
     function getPriceDisplayHTML(show) {
-      const promoPrice = Number(show.price || 0);
+      const promoPrice = getEffectiveTicketPrice(show);
       const normalPrice = Number(show.normalPrice || 0);
       const hasPresale = normalPrice > promoPrice && promoPrice > 0;
       const presaleDateText = String(show.presaleDate || '').trim();
@@ -443,8 +459,9 @@
       }
       selectedShowId = showId;
       selectedSeats = [];
+      const unitPrice = getEffectiveTicketPrice(show);
       document.getElementById('selected-show-badge').textContent = show.tag || 'FUNCIÓN';
-      document.getElementById('selected-movie-title').textContent = `${show.title || 'Película'} (S/ ${Number(show.price || 0).toFixed(2)} c/u)`;
+      document.getElementById('selected-movie-title').textContent = `${show.title || 'Película'} (S/ ${unitPrice.toFixed(2)} c/u)`;
       renderSeats();
       goToStep(2);
     };
@@ -519,7 +536,7 @@
 
     function updateSeatsSummary() {
       const show = appConfig.shows[selectedShowId] || {};
-      const ticketPrice = Number(show.price || 0);
+      const ticketPrice = getEffectiveTicketPrice(show);
       const count = selectedSeats.length;
       document.getElementById('selected-seats-count').textContent = count;
       document.getElementById('selected-seats-list').textContent = count > 0 ? [...selectedSeats].sort().join(', ') : 'Ninguna aún';
@@ -561,19 +578,19 @@
 
     function calculateTotal() {
       const show = appConfig.shows[selectedShowId] || {};
-      const ticketTotal = selectedSeats.length * Number(show.price || 0);
+      const ticketTotal = selectedSeats.length * getEffectiveTicketPrice(show);
       let snacksTotal = 0;
       (appConfig.snacks || []).forEach(sn => {
         if (selectedSnacks[sn.id]) {
           snacksTotal += selectedSnacks[sn.id] * Number(sn.price || 0);
         }
       });
-      return ticketTotal + snacksTotal;
+      return Number((ticketTotal + snacksTotal).toFixed(2));
     }
 
     function renderCheckout() {
       const show = appConfig.shows[selectedShowId] || {};
-      const price = Number(show.price || 0);
+      const price = getEffectiveTicketPrice(show);
       const normalPrice = Number(show.normalPrice || 0);
       const hasPresale = normalPrice > price && price > 0;
       const seatsList = selectedSeats.length > 0 ? [...selectedSeats].sort() : ['Por asignar'];
@@ -640,15 +657,19 @@
       const name = document.getElementById('buyer-name').value.trim();
       const phone = document.getElementById('buyer-phone').value.trim();
       const yapeOp = document.getElementById('yape-op').value.trim();
+      const totalAmount = calculateTotal();
 
       if (!name) return showBoscoAlert("Por favor ingresa tu nombre y apellido.");
       if (!phone || phone.replace(/\D/g, '').length < 7) return showBoscoAlert("Por favor ingresa un número de WhatsApp válido.");
       if (!receiptBase64) return showBoscoAlert("Por favor adjunta la captura de pantalla de tu pago por Yape.");
       if (selectedSeats.length === 0) return showBoscoAlert("Selecciona al menos una butaca.");
+      if (totalAmount <= 0) return showBoscoAlert("El total a yapear es S/ 0.00. Revisa el precio configurado de la función en el panel de administración.");
 
       const btn = document.getElementById('btn-submit-order');
       btn.disabled = true;
       btn.textContent = "Separando butacas...";
+
+      const lockedSeatsInRun = [];
 
       try {
         const sortedSeats = [...selectedSeats].sort();
@@ -672,24 +693,26 @@
 
           if (!txResult.committed) {
             const rollback = {};
-            sortedSeats.forEach(s => {
+            lockedSeatsInRun.forEach(s => {
               rollback[`occupiedSeats/${selectedShowId}/${s}`] = null;
             });
-            await update(ref(db), rollback);
+            if (Object.keys(rollback).length > 0) {
+              await update(ref(db), rollback);
+            }
             btn.disabled = false;
             btn.textContent = "✓ Confirmar y Enviar Reserva";
-            showBoscoAlert(`Lo sentimos, la butaca ${seatId} acaba de ser ocupada. Elige otra butaca disponible.`);
+            showBoscoAlert(`La butaca ${seatId} ya figura ocupada en la sala. Elige otra butaca disponible.`);
             goToStep(2);
             return;
           }
+
+          lockedSeatsInRun.push(seatId);
         }
 
         const snacksText = (appConfig.snacks || [])
           .filter(sn => selectedSnacks[sn.id])
           .map(sn => `${selectedSnacks[sn.id]}x ${sn.name}`)
           .join(', ') || 'Ninguno';
-
-        const totalAmount = calculateTotal();
 
         const orderPayload = {
           code: orderCode,
@@ -724,6 +747,13 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (err) {
         console.error(err);
+        const rollback = {};
+        lockedSeatsInRun.forEach(s => {
+          rollback[`occupiedSeats/${selectedShowId}/${s}`] = null;
+        });
+        if (Object.keys(rollback).length > 0) {
+          await update(ref(db), rollback).catch(() => {});
+        }
         showBoscoAlert("Ocurrió un error al registrar tu reserva. Intenta nuevamente.");
         btn.disabled = false;
         btn.textContent = "✓ Confirmar y Enviar Reserva";
