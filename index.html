@@ -30,9 +30,11 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="hidden sm:inline-block text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-          ● Reservas en vivo
-        </span>
+        <a id="header-support-link" href="#" target="_blank" rel="noopener" class="text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold transition flex items-center gap-1.5">
+          <span>💬</span>
+          <span class="hidden sm:inline">Atención al cliente</span>
+          <span class="sm:hidden">Ayuda</span>
+        </a>
       </div>
     </div>
   </header>
@@ -218,12 +220,36 @@
         El equipo de <strong>CineBosco</strong> verificará tu captura de Yape y te enviará tu <strong>entrada con código QR</strong> directamente a tu WhatsApp.
       </p>
 
-      <button type="button" onclick="location.reload()" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">
-        Hacer otra reserva
-      </button>
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <a id="success-support-link" href="#" target="_blank" rel="noopener" class="flex-1 py-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs transition flex items-center justify-center gap-1.5">
+          💬 Consultar por WhatsApp
+        </a>
+        <button type="button" onclick="location.reload()" class="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">
+          Hacer otra reserva
+        </button>
+      </div>
     </section>
 
   </main>
+
+  <!-- APARTADO DE ATENCIÓN AL CLIENTE EN FOOTER -->
+  <footer class="border-t border-slate-800/80 bg-slate-950/80 mt-8">
+    <div class="max-w-5xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+      <div>
+        <p class="text-xs font-bold text-white">💬 Atención al Cliente CineBosco</p>
+        <p class="text-[11px] text-slate-400">¿Problemas con tu reserva o pago? Escríbenos directo por WhatsApp: <span id="footer-support-phone" class="text-emerald-400 font-mono font-bold">999 999 999</span></p>
+      </div>
+      <a id="footer-support-link" href="#" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition shadow-md shrink-0">
+        📲 Escribir al WhatsApp
+      </a>
+    </div>
+  </footer>
+
+  <!-- BOTÓN FLOTANTE DE WHATSAPP -->
+  <a id="floating-whatsapp-btn" href="#" target="_blank" rel="noopener" title="Atención al cliente por WhatsApp" class="fixed bottom-24 sm:bottom-5 left-4 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-xl transition hover:scale-105">
+    <span class="text-base leading-none">💬</span>
+    <span class="hidden sm:inline">Atención al cliente</span>
+  </a>
 
   <!-- Modal Personalizado: CineBosco dice -->
   <div id="bosco-alert-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onclick="closeBoscoAlert()">
@@ -273,6 +299,7 @@
       eventDate: "Sábado 5 de Diciembre",
       yapeName: "CineBosco Oficial",
       yapePhone: "999 999 999",
+      supportPhone: "",
       yapeQrBase64: "",
       shows: {
         show1: {
@@ -335,6 +362,14 @@
       return merged;
     }
 
+    function buildSupportWhatsAppUrl(extraText = "") {
+      const rawPhone = String(appConfig.supportPhone || appConfig.yapePhone || "999999999").trim();
+      const digits = rawPhone.replace(/\D/g, '');
+      const pePhone = digits.startsWith('51') ? digits : `51${digits}`;
+      const baseMsg = extraText || "Hola, necesito ayuda o tengo una consulta sobre las entradas de CineBosco 🎬";
+      return `https://wa.me/${pePhone}?text=${encodeURIComponent(baseMsg)}`;
+    }
+
     onValue(ref(db, 'config'), (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -381,6 +416,14 @@
       document.getElementById('header-event-date').textContent = appConfig.eventDate || "Próxima función";
       document.getElementById('yape-holder-name').textContent = appConfig.yapeName || "CineBosco Oficial";
       document.getElementById('yape-holder-phone').textContent = appConfig.yapePhone || "999 999 999";
+
+      const supportDisplayPhone = String(appConfig.supportPhone || appConfig.yapePhone || "999 999 999").trim();
+      const supportUrl = buildSupportWhatsAppUrl();
+      document.getElementById('footer-support-phone').textContent = supportDisplayPhone;
+      document.getElementById('header-support-link').href = supportUrl;
+      document.getElementById('footer-support-link').href = supportUrl;
+      document.getElementById('floating-whatsapp-btn').href = supportUrl;
+      document.getElementById('success-support-link').href = supportUrl;
 
       const qrImg = document.getElementById('yape-qr-img');
       if (appConfig.yapeQrBase64) {
@@ -746,7 +789,6 @@
 
         await set(newOrderRef, orderPayload);
 
-        // Limpiar selección actual antes de mostrar la pantalla final
         selectedSeats = [];
         selectedSnacks = {};
         receiptBase64 = "";
@@ -759,6 +801,9 @@
         document.getElementById('success-seats').textContent = sortedSeats.join(', ');
         document.getElementById('success-snacks').textContent = snacksText;
         document.getElementById('success-total').textContent = `S/ ${totalAmount.toFixed(2)}`;
+        document.getElementById('success-support-link').href = buildSupportWhatsAppUrl(
+          `Hola, acabo de registrar mi reserva *${orderCode}* a nombre de *${name}* y tengo una consulta 🎬`
+        );
 
         activeStep = 0;
         ['step-1', 'step-2', 'step-3', 'step-4'].forEach(id => document.getElementById(id).classList.add('hidden'));
